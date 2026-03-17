@@ -9,6 +9,7 @@ import type { MyLevelView } from "@contexts/levels/application/queries/GetMyLeve
 import type { LeaderboardEntry } from "@contexts/levels/application/ports/LevelProfileRepository";
 import { LevelPolicy } from "@contexts/levels/domain/LevelPolicy";
 import { NapiCanvasLevelCardGenerator } from "@contexts/levels/infrastructure/image/NapiCanvasLevelCardGenerator";
+import { infoEmbed } from "@platform/discord/MessageEmbeds";
 
 export class LevelSlashCommandHandler implements SlashCommandHandler {
   public readonly commandName = "level";
@@ -33,7 +34,12 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
       if (!result) {
         await interaction.reply({
           ephemeral: true,
-          content: "Este usuario aun no tiene perfil de nivel registrado."
+          embeds: [
+            infoEmbed(
+              "Sin perfil de nivel",
+              "Este usuario aún no tiene perfil de nivel registrado."
+            )
+          ]
         });
         return;
       }

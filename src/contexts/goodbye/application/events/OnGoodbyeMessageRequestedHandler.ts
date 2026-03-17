@@ -38,13 +38,18 @@ export class OnGoodbyeMessageRequestedHandler {
   ): Promise<void> {
     let imageAttachment: AttachmentBuilder | null = null;
     let imageAvailable = false;
+    const accentColor = 0x8f3a2f;
+    const username = payload.username ?? payload.displayName;
 
     try {
       const image = await this.imageGenerator.generate({
         displayName: payload.displayName,
-        username: payload.displayName,
+        username,
         avatarUrl: payload.avatarUrl,
-        title: "Hasta pronto"
+        title: "Hasta pronto",
+        subtitle: `@${username}`,
+        accentColor,
+        variant: "goodbye"
       });
       imageAttachment = new AttachmentBuilder(image, { name: "goodbye.png" });
       imageAvailable = true;
@@ -56,15 +61,25 @@ export class OnGoodbyeMessageRequestedHandler {
     }
 
     try {
-      const embed = new EmbedBuilder().setColor(0x8f3a2f).setTitle("Hasta pronto");
+      const embed = new EmbedBuilder()
+        .setColor(accentColor)
+        .setTitle("Hasta pronto")
+        .setDescription(message)
+        .setAuthor({
+          name: payload.displayName,
+          iconURL: payload.avatarUrl
+        })
+        .setFooter({ text: "Sistema de despedidas" })
+        .setTimestamp();
+
       if (imageAvailable) {
         embed.setImage("attachment://goodbye.png");
       } else {
-        embed.setDescription(message);
+        embed.setThumbnail(payload.avatarUrl ?? null);
       }
 
       await this.discord.sendMessage(channelId, {
-        content: message,
+        content: `<@${payload.userId}>`,
         files: imageAttachment ? [imageAttachment] : [],
         embeds: [embed]
       });

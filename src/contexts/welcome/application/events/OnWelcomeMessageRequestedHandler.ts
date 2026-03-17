@@ -38,13 +38,18 @@ export class OnWelcomeMessageRequestedHandler {
   ): Promise<void> {
     let imageAttachment: AttachmentBuilder | null = null;
     let imageAvailable = false;
+    const accentColor = 0x2d7a46;
+    const username = payload.username ?? payload.displayName;
 
     try {
       const image = await this.imageGenerator.generate({
         displayName: payload.displayName,
-        username: payload.displayName,
+        username,
         avatarUrl: payload.avatarUrl,
-        title: "Bienvenido/a"
+        title: "Bienvenido/a",
+        subtitle: `@${username}`,
+        accentColor,
+        variant: "welcome"
       });
       imageAttachment = new AttachmentBuilder(image, { name: "welcome.png" });
       imageAvailable = true;
@@ -56,15 +61,25 @@ export class OnWelcomeMessageRequestedHandler {
     }
 
     try {
-      const embed = new EmbedBuilder().setColor(0x2d7a46).setTitle("Bienvenido/a");
+      const embed = new EmbedBuilder()
+        .setColor(accentColor)
+        .setTitle("Bienvenido/a")
+        .setDescription(message)
+        .setAuthor({
+          name: payload.displayName,
+          iconURL: payload.avatarUrl
+        })
+        .setFooter({ text: "Sistema de bienvenida" })
+        .setTimestamp();
+
       if (imageAvailable) {
         embed.setImage("attachment://welcome.png");
       } else {
-        embed.setDescription(message);
+        embed.setThumbnail(payload.avatarUrl ?? null);
       }
 
       await this.discord.sendMessage(channelId, {
-        content: message,
+        content: `<@${payload.userId}>`,
         files: imageAttachment ? [imageAttachment] : [],
         embeds: [embed]
       });

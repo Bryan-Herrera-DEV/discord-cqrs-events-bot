@@ -7,6 +7,7 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - Administracion general por guild (`/admin ...`).
 - Moderacion con casos auditables (`/mod ...`).
 - Sistema de niveles por actividad de mensajes y tiempo en voz (`/level ...`).
+- Respuestas de comandos en embeds consistentes (exitos, avisos y errores).
 - Gestion de roles con validacion de jerarquia (`/role ...`).
 - Bienvenida automatica con formato fijo e imagen.
 - Despedida automatica con formato fijo e imagen.
@@ -40,6 +41,12 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - La sesion termina cuando ya no quedan usuarios humanos en ese canal.
 - Al cerrar la sesion se calcula XP por cada participante y se ejecuta `GrantVoiceXpCommand`.
 - Se guarda historial detallado del calculo en Mongo (`voice_xp_history`).
+
+### Formato visual de bienvenida y despedida
+
+- Se envia embed con menciones, metadata y card grafica.
+- La card se genera en servidor con patron geometrico, avatar y nombre del usuario.
+- Si falla la generacion de imagen, el embed se envia con thumbnail y texto fallback.
 
 ### Al borrar un rol en Discord
 

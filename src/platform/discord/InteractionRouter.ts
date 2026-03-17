@@ -1,5 +1,4 @@
 import {
-  EmbedBuilder,
   type CacheType,
   type ChatInputCommandInteraction,
   type InteractionReplyOptions
@@ -10,6 +9,7 @@ import type { Logger } from "@shared/infrastructure/logger/Logger";
 import type { MetricsRegistry } from "@shared/infrastructure/observability/metrics";
 import type { CommandIdempotencyStore } from "@shared/infrastructure/idempotency/CommandIdempotencyStore";
 import type { RateLimiter } from "@shared/infrastructure/rate-limit/RateLimiter";
+import { dangerEmbed, infoEmbed, warningEmbed } from "@platform/discord/MessageEmbeds";
 
 export interface SlashCommandHandler {
   readonly commandName: string;
@@ -35,7 +35,7 @@ export class InteractionRouter {
     if (!handler) {
       await this.replySafe(interaction, {
         ephemeral: true,
-        content: "Comando no implementado"
+        embeds: [infoEmbed("Comando no disponible", "Este comando todavía no está implementado.")]
       });
       return;
     }
@@ -46,9 +46,14 @@ export class InteractionRouter {
     if (!rateLimitResult.allowed) {
       await this.replySafe(interaction, {
         ephemeral: true,
-        content: `Estás enviando comandos demasiado rápido. Intenta nuevamente en ${Math.ceil(
-          rateLimitResult.retryAfterMs / 1000
-        )}s.`
+        embeds: [
+          warningEmbed(
+            "Demasiadas solicitudes",
+            `Estás enviando comandos demasiado rápido. Intenta nuevamente en ${Math.ceil(
+              rateLimitResult.retryAfterMs / 1000
+            )}s.`
+          )
+        ]
       });
       return;
     }
@@ -62,14 +67,16 @@ export class InteractionRouter {
     if (beginResult === "already_processed") {
       await this.replySafe(interaction, {
         ephemeral: true,
-        content: "Este comando ya fue procesado anteriormente."
+        embeds: [
+          infoEmbed("Comando ya procesado", "Esta interacción ya fue procesada anteriormente.")
+        ]
       });
       return;
     }
     if (beginResult === "in_progress") {
       await this.replySafe(interaction, {
         ephemeral: true,
-        content: "Este comando aún está en proceso."
+        embeds: [infoEmbed("Comando en proceso", "Esta interacción todavía está en ejecución.")]
       });
       return;
     }
@@ -96,12 +103,7 @@ export class InteractionRouter {
       this.metrics.commandFailureCounter.inc({ command: commandName, code: error.code });
       await this.replySafe(interaction, {
         ephemeral: true,
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("No se pudo ejecutar el comando")
-            .setDescription(error.message)
-            .setColor(0xe67e22)
-        ]
+        embeds: [warningEmbed("No se pudo ejecutar el comando", error.message)]
       });
       return;
     }
@@ -116,12 +118,10 @@ export class InteractionRouter {
     await this.replySafe(interaction, {
       ephemeral: true,
       embeds: [
-        new EmbedBuilder()
-          .setTitle("Error interno")
-          .setDescription(
-            "Ocurrió un error inesperado. El incidente fue registrado para revisión interna."
-          )
-          .setColor(0xc0392b)
+        dangerEmbed(
+          "Error interno",
+          "Ocurrió un error inesperado. El incidente fue registrado para revisión interna."
+        )
       ]
     });
   }

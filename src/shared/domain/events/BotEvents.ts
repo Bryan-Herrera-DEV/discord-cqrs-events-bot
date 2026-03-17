@@ -40,6 +40,7 @@ export interface WelcomeMessageRequestedPayload {
   guildId: string;
   userId: string;
   displayName: string;
+  username?: string;
   avatarUrl?: string;
 }
 
@@ -47,6 +48,7 @@ export interface GoodbyeMessageRequestedPayload {
   guildId: string;
   userId: string;
   displayName: string;
+  username?: string;
   avatarUrl?: string;
 }
 

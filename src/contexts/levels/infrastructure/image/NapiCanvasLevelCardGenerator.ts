@@ -72,7 +72,7 @@ export class NapiCanvasLevelCardGenerator {
     context.fillStyle = "#f2f6f7";
     context.fillText(
       `Progreso: ${input.xpIntoLevel}/${input.xpNeededInLevel} XP`,
-      progressX,
+      progressWidth - progressX,
       progressY - 10
     );
 
