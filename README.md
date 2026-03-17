@@ -68,12 +68,6 @@ Prueba local sin publicar release:
 npm run release:dry-run
 ```
 
-Si quieres arrancar desde la version actual del proyecto (`0.1.0`) y no desde `1.0.0`, crea un tag inicial una sola vez:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
 
 ## Variables de entorno
 
