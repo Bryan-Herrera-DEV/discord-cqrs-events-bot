@@ -35,9 +35,11 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 
 ### Al entrar/salir de llamada de voz
 
-- Al entrar a voz se inicia una sesion interna.
-- Al salir de voz se calcula la duracion y se ejecuta `GrantVoiceXpCommand`.
-- El XP de voz suma al mismo perfil de niveles.
+- Si un usuario entra a voz y no tiene perfil de niveles, se crea automaticamente.
+- La sesion de voz inicia cuando entra el primer usuario humano al canal.
+- La sesion termina cuando ya no quedan usuarios humanos en ese canal.
+- Al cerrar la sesion se calcula XP por cada participante y se ejecuta `GrantVoiceXpCommand`.
+- Se guarda historial detallado del calculo en Mongo (`voice_xp_history`).
 
 ### Al borrar un rol en Discord
 

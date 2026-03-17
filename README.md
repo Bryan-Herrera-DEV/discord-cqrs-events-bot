@@ -7,6 +7,7 @@ Base de bot de Discord lista para crecer en features, trafico y equipo.
 - Arquitectura por modulos (`guilds`, `guild-settings`, `members`, `levels`, `roles`, `welcome`, `goodbye`, `moderation`, `administration`).
 - Comandos slash para administracion, moderacion, niveles y roles, mas flujos automaticos de bienvenida/despedida.
 - Persistencia MongoDB con indices y preparacion para outbox.
+- Historial de calculo de XP por voz en MongoDB (`voice_xp_history`) con detalle por sesion/usuario.
 - Resiliencia con rate limit por usuario/comando e idempotencia por interaccion.
 - Observabilidad con logs estructurados, health/readiness y metricas Prometheus.
 
@@ -67,7 +68,6 @@ Prueba local sin publicar release:
 ```bash
 npm run release:dry-run
 ```
-
 
 ## Variables de entorno
 

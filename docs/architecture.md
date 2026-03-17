@@ -81,8 +81,10 @@ Secuencia simplificada de `startApp()` en `src/app.ts`:
 ### 5) Voz y XP
 
 1. `DiscordGateway.onVoiceStateUpdate` detecta entrada/salida de canal.
-2. Al salir, `app.ts` calcula minutos de sesion y ejecuta `GrantVoiceXpCommand`.
-3. `levels` suma XP de voz al mismo perfil y publica `MemberLeveledUp` si corresponde.
+2. `app.ts` crea perfil de niveles al entrar a voz si no existe.
+3. `app.ts` abre sesion por canal al primer ingreso y la cierra cuando el canal queda sin usuarios humanos.
+4. Al cerrar la sesion, `app.ts` calcula participacion por usuario y ejecuta `GrantVoiceXpCommand`.
+5. `levels` suma XP de voz al mismo perfil, publica `MemberLeveledUp` si corresponde y guarda historial de calculo (`voice_xp_history`).
 
 ## Persistencia MongoDB
 
@@ -92,6 +94,7 @@ Colecciones actuales:
 - `guild_settings`
 - `member_profiles`
 - `level_profiles`
+- `voice_xp_history`
 - `role_configurations`
 - `moderation_cases`
 - `moderation_actions`

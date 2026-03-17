@@ -15,6 +15,7 @@ import { GetMyLevelHandler } from "@contexts/levels/application/queries/GetMyLev
 import { GetLevelLeaderboardQuery } from "@contexts/levels/application/queries/GetLevelLeaderboardQuery";
 import { GetLevelLeaderboardHandler } from "@contexts/levels/application/queries/GetLevelLeaderboardHandler";
 import { MongoLevelProfileRepository } from "@contexts/levels/infrastructure/persistence/MongoLevelProfileRepository";
+import { MongoVoiceXpHistoryRepository } from "@contexts/levels/infrastructure/persistence/MongoVoiceXpHistoryRepository";
 import { LevelPolicy } from "@contexts/levels/domain/LevelPolicy";
 import { OnUserRegisteredInitializeLevelHandler } from "@contexts/levels/application/events/OnUserRegisteredInitializeLevelHandler";
 
@@ -24,6 +25,8 @@ export class LevelsModule implements BotModule {
   public async register(context: AppContext): Promise<void> {
     const repository = new MongoLevelProfileRepository(context.mongo.getDatabase());
     await repository.init();
+    const voiceXpHistoryRepository = new MongoVoiceXpHistoryRepository(context.mongo.getDatabase());
+    await voiceXpHistoryRepository.init();
 
     const levelPolicy = new LevelPolicy();
     const guildSettingsRepository = (
@@ -42,7 +45,13 @@ export class LevelsModule implements BotModule {
     );
     context.commandBus.register(
       GrantVoiceXpCommand.type,
-      new GrantVoiceXpHandler(repository, levelPolicy, context.eventBus, guildSettingsRepository)
+      new GrantVoiceXpHandler(
+        repository,
+        levelPolicy,
+        context.eventBus,
+        guildSettingsRepository,
+        voiceXpHistoryRepository
+      )
     );
     context.queryBus.register(GetMyLevelQuery.type, new GetMyLevelHandler(repository, levelPolicy));
     context.queryBus.register(

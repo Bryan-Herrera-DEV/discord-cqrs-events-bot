@@ -2,8 +2,11 @@ import type { Command } from "@shared/application/CommandBus";
 
 export interface GrantVoiceXpPayload {
   guildId: string;
+  channelId: string;
   userId: string;
-  minutes: number;
+  sessionStartedAt: Date;
+  sessionEndedAt: Date;
+  participationMs: number;
   xpPerMinute: number;
   maxMinutesPerSession: number;
 }

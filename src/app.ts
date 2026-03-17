@@ -141,8 +141,109 @@ export const startApp = async (): Promise<RunningApp> => {
     await interactionRouter.handle(interaction);
   });
 
-  const voiceSessionStartedAt = new Map<string, number>();
-  const toVoiceSessionKey = (guildId: string, userId: string): string => `${guildId}:${userId}`;
+  interface VoiceParticipantSession {
+    activeJoinedAt: number | null;
+    accumulatedMs: number;
+  }
+
+  interface VoiceChannelSession {
+    guildId: string;
+    channelId: string;
+    startedAt: number;
+    participants: Map<string, VoiceParticipantSession>;
+  }
+
+  const voiceSessions = new Map<string, VoiceChannelSession>();
+  const toVoiceChannelSessionKey = (guildId: string, channelId: string): string =>
+    `${guildId}:${channelId}`;
+
+  const pauseParticipantSession = (
+    session: VoiceChannelSession,
+    userId: string,
+    endedAtMs: number
+  ): void => {
+    const participant = session.participants.get(userId);
+    if (!participant || participant.activeJoinedAt === null) {
+      return;
+    }
+
+    participant.accumulatedMs += Math.max(0, endedAtMs - participant.activeJoinedAt);
+    participant.activeJoinedAt = null;
+  };
+
+  const sessionHasActiveParticipants = (session: VoiceChannelSession): boolean => {
+    for (const participant of session.participants.values()) {
+      if (participant.activeJoinedAt !== null) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const closeVoiceChannelSession = async (
+    session: VoiceChannelSession,
+    endedAtMs: number
+  ): Promise<void> => {
+    const sessionStartedAt = new Date(session.startedAt);
+    const sessionEndedAt = new Date(endedAtMs);
+
+    await Promise.all(
+      [...session.participants.entries()].map(async ([participantUserId, participant]) => {
+        const openIntervalMs =
+          participant.activeJoinedAt === null
+            ? 0
+            : Math.max(0, endedAtMs - participant.activeJoinedAt);
+        const participationMs = participant.accumulatedMs + openIntervalMs;
+
+        await commandBus.execute(
+          new GrantVoiceXpCommand({
+            guildId: session.guildId,
+            channelId: session.channelId,
+            userId: participantUserId,
+            sessionStartedAt,
+            sessionEndedAt,
+            participationMs,
+            xpPerMinute: env.VOICE_XP_PER_MINUTE,
+            maxMinutesPerSession: env.VOICE_XP_MAX_MINUTES_PER_SESSION
+          })
+        );
+      })
+    );
+  };
+
+  const startOrResumeParticipantSession = async (
+    guildId: string,
+    channelId: string,
+    userId: string,
+    startedAtMs: number
+  ): Promise<void> => {
+    await commandBus.execute(new InitializeLevelProfileCommand({ guildId, userId }));
+
+    const key = toVoiceChannelSessionKey(guildId, channelId);
+    let session = voiceSessions.get(key);
+    if (!session) {
+      session = {
+        guildId,
+        channelId,
+        startedAt: startedAtMs,
+        participants: new Map<string, VoiceParticipantSession>()
+      };
+      voiceSessions.set(key, session);
+    }
+
+    const participant = session.participants.get(userId);
+    if (!participant) {
+      session.participants.set(userId, {
+        activeJoinedAt: startedAtMs,
+        accumulatedMs: 0
+      });
+      return;
+    }
+
+    if (participant.activeJoinedAt === null) {
+      participant.activeJoinedAt = startedAtMs;
+    }
+  };
 
   discord.onGuildMemberAdd(async (member) => {
     await eventBus.publish(
@@ -200,9 +301,9 @@ export const startApp = async (): Promise<RunningApp> => {
   });
 
   discord.onGuildDelete(async (guildId) => {
-    for (const key of voiceSessionStartedAt.keys()) {
+    for (const key of voiceSessions.keys()) {
       if (key.startsWith(`${guildId}:`)) {
-        voiceSessionStartedAt.delete(key);
+        voiceSessions.delete(key);
       }
     }
     await commandBus.execute(new MarkGuildRemovedCommand({ guildId }));
@@ -249,39 +350,22 @@ export const startApp = async (): Promise<RunningApp> => {
 
     const guildId = member.guild.id;
     const userId = member.user.id;
-    const key = toVoiceSessionKey(guildId, userId);
+    const nowMs = Date.now();
 
-    if (!oldState.channelId && newState.channelId) {
-      voiceSessionStartedAt.set(key, Date.now());
-      return;
+    if (oldState.channelId) {
+      const previousChannelKey = toVoiceChannelSessionKey(guildId, oldState.channelId);
+      const previousSession = voiceSessions.get(previousChannelKey);
+      if (previousSession) {
+        pauseParticipantSession(previousSession, userId, nowMs);
+        if (!sessionHasActiveParticipants(previousSession)) {
+          voiceSessions.delete(previousChannelKey);
+          await closeVoiceChannelSession(previousSession, nowMs);
+        }
+      }
     }
 
-    if (oldState.channelId && !newState.channelId) {
-      const startedAt = voiceSessionStartedAt.get(key);
-      voiceSessionStartedAt.delete(key);
-      if (!startedAt) {
-        return;
-      }
-
-      const minutes = Math.floor((Date.now() - startedAt) / 60_000);
-      if (minutes <= 0) {
-        return;
-      }
-
-      await commandBus.execute(
-        new GrantVoiceXpCommand({
-          guildId,
-          userId,
-          minutes,
-          xpPerMinute: env.VOICE_XP_PER_MINUTE,
-          maxMinutesPerSession: env.VOICE_XP_MAX_MINUTES_PER_SESSION
-        })
-      );
-      return;
-    }
-
-    if (oldState.channelId && newState.channelId && !voiceSessionStartedAt.has(key)) {
-      voiceSessionStartedAt.set(key, Date.now());
+    if (newState.channelId) {
+      await startOrResumeParticipantSession(guildId, newState.channelId, userId, nowMs);
     }
   });
 
