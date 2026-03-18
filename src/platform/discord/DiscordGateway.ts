@@ -190,6 +190,19 @@ export class DiscordGateway {
     return [...member.roles.cache.keys()];
   }
 
+  public async getMemberProfile(
+    guildId: string,
+    userId: string
+  ): Promise<{ displayName: string; username: string; avatarUrl?: string }> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const member = await guild.members.fetch(userId);
+    return {
+      displayName: member.displayName,
+      username: member.user.username,
+      avatarUrl: member.displayAvatarURL({ extension: "png", forceStatic: false, size: 256 })
+    };
+  }
+
   public async getGuildName(guildId: string): Promise<string> {
     const guild = await this.client.guilds.fetch(guildId);
     return guild.name;

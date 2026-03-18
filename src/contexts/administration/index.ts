@@ -55,6 +55,23 @@ export class AdministrationModule implements BotModule {
                 )
             )
         )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("levels")
+            .setDescription("Configura alertas de subida de nivel")
+            .addBooleanOption((option) =>
+              option
+                .setName("alerts_enabled")
+                .setDescription("Activa o desactiva alertas de nivel")
+                .setRequired(false)
+            )
+            .addChannelOption((option) =>
+              option
+                .setName("alerts_channel")
+                .setDescription("Canal donde se anunciarán las subidas de nivel")
+                .setRequired(false)
+            )
+        )
     );
 
     registry.add(

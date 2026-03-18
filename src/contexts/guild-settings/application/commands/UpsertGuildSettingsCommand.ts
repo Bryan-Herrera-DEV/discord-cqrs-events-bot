@@ -1,6 +1,9 @@
 import type { Command } from "@shared/application/CommandBus";
 
-import type { GuildChannels, PermissionPolicies } from "@contexts/guild-settings/domain/GuildSettings";
+import type {
+  GuildChannels,
+  PermissionPolicies
+} from "@contexts/guild-settings/domain/GuildSettings";
 
 export interface UpsertGuildSettingsPayload {
   guildId: string;
@@ -10,6 +13,7 @@ export interface UpsertGuildSettingsPayload {
   featureFlags?: {
     moderationEnabled?: boolean;
     levelingEnabled?: boolean;
+    levelUpAlertsEnabled?: boolean;
     welcomeEnabled?: boolean;
     goodbyeEnabled?: boolean;
     rolesEnabled?: boolean;

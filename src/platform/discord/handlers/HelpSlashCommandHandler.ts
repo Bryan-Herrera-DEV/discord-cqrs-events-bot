@@ -14,6 +14,7 @@ const commonCommands = [
 const adminCommands = [
   "`/admin ping`: Verifica estado y latencia del bot.",
   "`/admin config ...`: Configura idioma, logs y flags del servidor.",
+  "`/admin levels ...`: Configura alertas y canal de subida de nivel.",
   "`/mod ...`: Ejecuta acciones de moderación y consulta casos.",
   "`/role ...`: Gestiona roles configurables para miembros."
 ].join("\n");

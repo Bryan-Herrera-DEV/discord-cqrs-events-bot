@@ -84,6 +84,7 @@ Minimas obligatorias:
 Opcional para desarrollo rapido en una sola guild:
 
 - `DISCORD_GUILD_ID`
+- `LOG_PRETTY` (`true` para logs legibles en consola local)
 
 ## Docker local
 

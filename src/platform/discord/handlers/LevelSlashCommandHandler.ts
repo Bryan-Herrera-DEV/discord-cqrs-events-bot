@@ -8,6 +8,7 @@ import { GetLevelLeaderboardQuery } from "@contexts/levels/application/queries/G
 import type { MyLevelView } from "@contexts/levels/application/queries/GetMyLevelQuery";
 import type { LeaderboardEntry } from "@contexts/levels/application/ports/LevelProfileRepository";
 import { LevelPolicy } from "@contexts/levels/domain/LevelPolicy";
+import { buildLevelTierLabel, resolveLevelTier } from "@contexts/levels/domain/LevelTier";
 import { NapiCanvasLevelCardGenerator } from "@contexts/levels/infrastructure/image/NapiCanvasLevelCardGenerator";
 import { infoEmbed } from "@platform/discord/MessageEmbeds";
 
@@ -48,6 +49,8 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
       const nextLevelBaseXp = this.levelPolicy.xpRequiredForLevel(result.level + 1);
       const xpIntoLevel = Math.max(0, result.xp - currentLevelBaseXp);
       const xpNeededInLevel = Math.max(1, nextLevelBaseXp - currentLevelBaseXp);
+      const tier = resolveLevelTier(result.level);
+      const tierLabel = buildLevelTierLabel(result.level);
 
       try {
         const image = await this.levelCardGenerator.generate({
@@ -65,10 +68,12 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
         await interaction.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor(0x2d7a46)
+              .setColor(tier.accentColor)
               .setTitle(`Nivel de ${user.username}`)
               .setDescription(
                 [
+                  `Nivel actual: ${result.level}`,
+                  `Tier actual: ${tierLabel}`,
                   `Rank global: ${result.rank ?? "N/A"}`,
                   `XP para siguiente nivel: ${result.xpToNextLevel}`
                 ].join("\n")
@@ -85,11 +90,12 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
       await interaction.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor(0x2d7a46)
+            .setColor(tier.accentColor)
             .setTitle(`Nivel de ${user.username}`)
             .setDescription(
               [
                 `Nivel: ${result.level}`,
+                `Tier: ${tierLabel}`,
                 `XP: ${result.xp}`,
                 `XP a siguiente nivel: ${result.xpToNextLevel}`,
                 `Rango: ${result.rank ?? "N/A"}`,

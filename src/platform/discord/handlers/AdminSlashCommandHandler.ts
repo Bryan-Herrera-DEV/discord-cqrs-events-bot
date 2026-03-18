@@ -61,7 +61,9 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
         !language;
 
       if (noPatchInput) {
-        const settings = await this.queryBus.execute<GuildSettings>(new GetGuildSettingsQuery({ guildId }));
+        const settings = await this.queryBus.execute<GuildSettings>(
+          new GetGuildSettingsQuery({ guildId })
+        );
         await interaction.reply({
           ephemeral: true,
           embeds: [
@@ -73,7 +75,9 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
                   `Idioma: ${settings.language}`,
                   `Canal logs: ${settings.channels.logsChannelId ? `<#${settings.channels.logsChannelId}>` : "No configurado"}`,
                   `Moderación: ${settings.featureFlags.moderationEnabled ? "Activa" : "Inactiva"}`,
-                  `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`
+                  `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`,
+                  `Alertas de nivel: ${settings.featureFlags.levelUpAlertsEnabled ? "Activas" : "Inactivas"}`,
+                  `Canal alertas nivel: ${settings.channels.levelUpChannelId ? `<#${settings.channels.levelUpChannelId}>` : "Por defecto del servidor"}`
                 ].join("\n")
               )
           ]
@@ -103,6 +107,59 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
             .setTitle("Configuración actualizada")
             .setColor(0x2d7a46)
             .setDescription("Los cambios de configuración se guardaron correctamente.")
+        ]
+      });
+      return;
+    }
+
+    if (subcommand === "levels") {
+      const alertsEnabled = interaction.options.getBoolean("alerts_enabled");
+      const alertsChannel = interaction.options.getChannel("alerts_channel");
+
+      const noPatchInput = typeof alertsEnabled !== "boolean" && !alertsChannel;
+
+      if (noPatchInput) {
+        const settings = await this.queryBus.execute<GuildSettings>(
+          new GetGuildSettingsQuery({ guildId })
+        );
+        await interaction.reply({
+          ephemeral: true,
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Configuración de niveles")
+              .setColor(0x1f4d78)
+              .setDescription(
+                [
+                  `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`,
+                  `Alertas de subida: ${settings.featureFlags.levelUpAlertsEnabled ? "Activas" : "Inactivas"}`,
+                  `Canal alertas: ${settings.channels.levelUpChannelId ? `<#${settings.channels.levelUpChannelId}>` : "Por defecto del servidor"}`
+                ].join("\n")
+              )
+          ]
+        });
+        return;
+      }
+
+      await this.commandBus.execute(
+        new UpsertGuildSettingsCommand({
+          guildId,
+          changedBy: interaction.user.id,
+          channels: {
+            levelUpChannelId: alertsChannel?.id
+          },
+          featureFlags: {
+            levelUpAlertsEnabled: alertsEnabled ?? undefined
+          }
+        })
+      );
+
+      await interaction.reply({
+        ephemeral: true,
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("Niveles actualizados")
+            .setColor(0x2d7a46)
+            .setDescription("La configuración de alertas de nivel fue guardada correctamente.")
         ]
       });
     }

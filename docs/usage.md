@@ -33,6 +33,7 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - Se ejecuta `GrantMessageXpCommand`.
 - Se aplica cooldown de XP por usuario.
 - Si supera umbral de nivel, se emite `MemberLeveledUp`.
+- Si las alertas estan activas, se publica una card NAPI en chat con el nivel/tier alcanzado.
 
 ### Al entrar/salir de llamada de voz
 
@@ -71,13 +72,16 @@ Permisos: `Administrator` o `ManageGuild` (o rol administrativo segun policy int
 - `/admin config [logs_channel] [leveling_enabled] [moderation_enabled] [language]`
   - Sin parametros: muestra configuracion actual.
   - Con parametros: actualiza campos de configuracion global.
+- `/admin levels [alerts_enabled] [alerts_channel]`
+  - Sin parametros: muestra configuracion de alertas de niveles.
+  - Con parametros: activa/desactiva alertas y define el canal de anuncios.
 
 ## `/level`
 
 Permisos: sin requisito especial.
 
 - `/level me [user]`
-  - Muestra tarjeta grafica con nivel, rank, XP y progreso.
+  - Muestra tarjeta grafica con nivel, rank, XP, progreso y tier actual.
 - `/level leaderboard [limit]`
   - Muestra ranking de niveles (1-20, default 10).
 
@@ -122,7 +126,8 @@ Cada accion crea caso de moderacion y, si hay `logs_channel`, envia log estructu
 
 1. Ejecutar `/admin config logs_channel:<canal>` para auditoria.
 2. Ajustar flags iniciales: `/admin config leveling_enabled:true moderation_enabled:true`.
-3. Validar con `/admin ping` y luego probar flujo real con usuario de pruebas.
+3. Configurar alertas de nivel: `/admin levels alerts_enabled:true alerts_channel:<canal>`.
+4. Validar con `/admin ping` y luego probar flujo real con usuario de pruebas.
 
 ## Endpoints de observabilidad
 

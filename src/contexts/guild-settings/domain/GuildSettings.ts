@@ -1,6 +1,7 @@
 export interface FeatureFlags {
   moderationEnabled: boolean;
   levelingEnabled: boolean;
+  levelUpAlertsEnabled: boolean;
   welcomeEnabled: boolean;
   goodbyeEnabled: boolean;
   rolesEnabled: boolean;
@@ -8,6 +9,7 @@ export interface FeatureFlags {
 
 export interface GuildChannels {
   logsChannelId?: string;
+  levelUpChannelId?: string;
   welcomeChannelId?: string;
   goodbyeChannelId?: string;
 }
@@ -37,6 +39,7 @@ export const defaultGuildSettings = (guildId: string): GuildSettings => {
     featureFlags: {
       moderationEnabled: true,
       levelingEnabled: true,
+      levelUpAlertsEnabled: true,
       welcomeEnabled: true,
       goodbyeEnabled: true,
       rolesEnabled: true
