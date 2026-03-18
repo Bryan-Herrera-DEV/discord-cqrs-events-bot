@@ -19,7 +19,9 @@ export class AdministrationModule implements BotModule {
       new SlashCommandBuilder()
         .setName("admin")
         .setDescription("Comandos administrativos")
-        .addSubcommand((subcommand) => subcommand.setName("ping").setDescription("Verifica latencia"))
+        .addSubcommand((subcommand) =>
+          subcommand.setName("ping").setDescription("Verifica latencia")
+        )
         .addSubcommand((subcommand) =>
           subcommand
             .setName("config")
@@ -53,6 +55,12 @@ export class AdministrationModule implements BotModule {
                 )
             )
         )
+    );
+
+    registry.add(
+      new SlashCommandBuilder()
+        .setName("help")
+        .setDescription("Muestra comandos disponibles según tu rol")
     );
   }
 }

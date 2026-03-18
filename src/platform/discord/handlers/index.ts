@@ -1,4 +1,5 @@
 export { AdminSlashCommandHandler } from "@platform/discord/handlers/AdminSlashCommandHandler";
+export { HelpSlashCommandHandler } from "@platform/discord/handlers/HelpSlashCommandHandler";
 export { RoleSlashCommandHandler } from "@platform/discord/handlers/RoleSlashCommandHandler";
 export { LevelSlashCommandHandler } from "@platform/discord/handlers/LevelSlashCommandHandler";
 export { WelcomeSlashCommandHandler } from "@platform/discord/handlers/WelcomeSlashCommandHandler";

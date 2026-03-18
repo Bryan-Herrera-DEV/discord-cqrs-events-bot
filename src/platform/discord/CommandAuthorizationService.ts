@@ -23,21 +23,35 @@ export class CommandAuthorizationService {
     return this.queryBus.execute<GuildSettings>(new GetGuildSettingsQuery({ guildId }));
   }
 
+  private hasNativeAdminPermission(interaction: ChatInputCommandInteraction): boolean {
+    return Boolean(
+      interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
+      interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)
+    );
+  }
+
+  public async isAdmin(interaction: ChatInputCommandInteraction): Promise<boolean> {
+    const guildId = interaction.guildId;
+    if (!guildId) {
+      return false;
+    }
+
+    if (this.hasNativeAdminPermission(interaction)) {
+      return true;
+    }
+
+    const settings = await this.getGuildSettings(interaction);
+    const memberRoleIds = await this.discord.getMemberRoleIds(guildId, interaction.user.id);
+    return hasAnyRole(memberRoleIds, settings.permissionPolicies.adminRoleIds);
+  }
+
   public async assertAdmin(interaction: ChatInputCommandInteraction): Promise<void> {
     const guildId = interaction.guildId;
     if (!guildId) {
       throw new AuthorizationError("Este comando solo puede ejecutarse en un servidor");
     }
-    const settings = await this.getGuildSettings(interaction);
-    const nativeAllowed =
-      interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ||
-      interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
-    if (nativeAllowed) {
-      return;
-    }
 
-    const memberRoleIds = await this.discord.getMemberRoleIds(guildId, interaction.user.id);
-    if (hasAnyRole(memberRoleIds, settings.permissionPolicies.adminRoleIds)) {
+    if (await this.isAdmin(interaction)) {
       return;
     }
 
@@ -63,9 +77,7 @@ export class CommandAuthorizationService {
       return;
     }
 
-    throw new AuthorizationError(
-      "Necesitas ManageRoles o un rol gestor de roles configurado"
-    );
+    throw new AuthorizationError("Necesitas ManageRoles o un rol gestor de roles configurado");
   }
 
   public async assertModerator(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -89,8 +101,6 @@ export class CommandAuthorizationService {
       return;
     }
 
-    throw new AuthorizationError(
-      "Necesitas permisos de moderación o un rol moderador configurado"
-    );
+    throw new AuthorizationError("Necesitas permisos de moderación o un rol moderador configurado");
   }
 }

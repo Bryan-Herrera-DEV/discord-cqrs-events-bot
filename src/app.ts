@@ -19,6 +19,7 @@ import { BotEvents } from "@shared/domain/events/BotEvents";
 import { createEventId } from "@shared/domain/DomainEvent";
 import {
   AdminSlashCommandHandler,
+  HelpSlashCommandHandler,
   LevelSlashCommandHandler,
   ModerationSlashCommandHandler,
   RoleSlashCommandHandler
@@ -120,6 +121,7 @@ export const startApp = async (): Promise<RunningApp> => {
 
   const interactionRouter = new InteractionRouter(
     [
+      new HelpSlashCommandHandler(queryBus, discord),
       new AdminSlashCommandHandler(commandBus, queryBus, discord),
       new RoleSlashCommandHandler(commandBus, queryBus, discord),
       new LevelSlashCommandHandler(queryBus),
@@ -245,6 +247,44 @@ export const startApp = async (): Promise<RunningApp> => {
     }
   };
 
+  const syncActiveParticipantsInChannel = async (
+    guildId: string,
+    channelId: string,
+    observedAtMs: number
+  ): Promise<void> => {
+    const key = toVoiceChannelSessionKey(guildId, channelId);
+    const session = voiceSessions.get(key);
+    if (!session) {
+      return;
+    }
+
+    const activeUserIds = await discord.listVoiceChannelMemberIds(guildId, channelId);
+    if (activeUserIds.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      activeUserIds.map(async (activeUserId) => {
+        await commandBus.execute(
+          new InitializeLevelProfileCommand({ guildId, userId: activeUserId })
+        );
+
+        const participant = session.participants.get(activeUserId);
+        if (!participant) {
+          session.participants.set(activeUserId, {
+            activeJoinedAt: observedAtMs,
+            accumulatedMs: 0
+          });
+          return;
+        }
+
+        if (participant.activeJoinedAt === null) {
+          participant.activeJoinedAt = observedAtMs;
+        }
+      })
+    );
+  };
+
   discord.onGuildMemberAdd(async (member) => {
     await eventBus.publish(
       BotEvents.guildMemberJoined({
@@ -358,14 +398,19 @@ export const startApp = async (): Promise<RunningApp> => {
       if (previousSession) {
         pauseParticipantSession(previousSession, userId, nowMs);
         if (!sessionHasActiveParticipants(previousSession)) {
-          voiceSessions.delete(previousChannelKey);
-          await closeVoiceChannelSession(previousSession, nowMs);
+          await syncActiveParticipantsInChannel(guildId, oldState.channelId, nowMs);
+
+          if (!sessionHasActiveParticipants(previousSession)) {
+            voiceSessions.delete(previousChannelKey);
+            await closeVoiceChannelSession(previousSession, nowMs);
+          }
         }
       }
     }
 
     if (newState.channelId) {
       await startOrResumeParticipantSession(guildId, newState.channelId, userId, nowMs);
+      await syncActiveParticipantsInChannel(guildId, newState.channelId, nowMs);
     }
   });
 

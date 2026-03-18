@@ -223,6 +223,23 @@ export class DiscordGateway {
       .map((member) => member.user.id);
   }
 
+  public async listVoiceChannelMemberIds(
+    guildId: string,
+    channelId: string,
+    includeBots = false
+  ): Promise<string[]> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channel = await guild.channels.fetch(channelId);
+
+    if (!channel || !channel.isVoiceBased() || !("members" in channel)) {
+      return [];
+    }
+
+    return [...channel.members.values()]
+      .filter((member) => includeBots || !member.user.bot)
+      .map((member) => member.user.id);
+  }
+
   public async kickMember(guildId: string, memberId: string, reason: string): Promise<void> {
     const guild = await this.client.guilds.fetch(guildId);
     const member = await guild.members.fetch(memberId);

@@ -110,17 +110,49 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
         })
       );
 
+      if (leaderboard.length === 0) {
+        await interaction.reply({
+          embeds: [
+            infoEmbed(
+              "Leaderboard de niveles",
+              "Aún no hay datos para mostrar. Envía mensajes o participa en voz para ganar XP."
+            )
+          ]
+        });
+        return;
+      }
+
+      const topThree = leaderboard
+        .slice(0, 3)
+        .map((entry, index) => {
+          const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
+          return `${medal} <@${entry.userId}> · Nivel ${entry.level} · ${entry.xp} XP`;
+        })
+        .join("\n");
+
       const lines = leaderboard.map((entry, index) => {
-        const badge =
-          index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
-        return `${badge} <@${entry.userId}> - Nivel ${entry.level} (${entry.xp} XP)`;
+        const position = `${index + 1}.`.padStart(3, " ");
+        return `${position} <@${entry.userId}> · Nivel ${entry.level} · ${entry.xp} XP`;
       });
+
       await interaction.reply({
         embeds: [
           new EmbedBuilder()
             .setColor(0x1f4d78)
             .setTitle("Leaderboard de niveles")
-            .setDescription(lines.length > 0 ? lines.join("\n") : "Sin datos aun")
+            .setDescription("Ranking actual de actividad y experiencia del servidor.")
+            .addFields(
+              {
+                name: "Top 3",
+                value: topThree
+              },
+              {
+                name: `Top ${leaderboard.length}`,
+                value: lines.join("\n")
+              }
+            )
+            .setFooter({ text: `Solicitado por ${interaction.user.username} · Límite ${limit}` })
+            .setTimestamp()
         ]
       });
     }

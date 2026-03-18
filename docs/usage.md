@@ -55,6 +55,13 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 
 ## Referencia de comandos
 
+## `/help`
+
+Permisos: sin requisito especial.
+
+- Muestra comandos para usuarios comunes.
+- Si quien lo ejecuta tiene perfil admin, añade bloque de comandos administrativos.
+
 ## `/admin`
 
 Permisos: `Administrator` o `ManageGuild` (o rol administrativo segun policy interna).
