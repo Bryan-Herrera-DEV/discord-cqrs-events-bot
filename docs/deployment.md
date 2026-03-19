@@ -44,6 +44,8 @@ Variables clave:
 - `MONGO_URI` (obligatoria)
 - `DISCORD_GUILD_ID` (opcional, recomendado en desarrollo para registrar comandos solo en una guild)
 - `HEALTH_PORT` (default `3001`)
+- `ADMIN_PORT` (default `3002`)
+- `ADMIN_API_TOKEN` (opcional, recomendado para proteger la API admin)
 - `COMMAND_RATE_LIMIT_PER_MINUTE` (default `20`)
 - `IDEMPOTENCY_TTL_SECONDS` (default `600`)
 
@@ -127,8 +129,9 @@ Validaciones minimas:
 2. Health endpoint responde:
    - `GET /healthz`
    - `GET /readyz`
-3. Slash commands visibles en Discord.
-4. Prueba funcional basica:
+3. Panel admin responde en `http://<host>:<ADMIN_PORT>`.
+4. Slash commands visibles en Discord.
+5. Prueba funcional basica:
    - `/admin ping`
    - `/level me`
 

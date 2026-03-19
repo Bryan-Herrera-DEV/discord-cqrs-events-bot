@@ -18,6 +18,7 @@ El proyecto combina DDD pragmatico, arquitectura hexagonal, event-driven interno
 - Registro de slash commands: `src/platform/discord/SlashCommandRegistry.ts`.
 - Eventos de dominio tipados: `src/shared/domain/events/BotEvents.ts`.
 - Infraestructura transversal: Mongo, health, metricas, logs, idempotencia, rate limit en `src/shared/infrastructure`.
+- Admin UI/API: `src/shared/infrastructure/admin/AdminServer.ts` con dashboard React servido desde el backend.
 
 ## Estructura por contexto
 
@@ -41,7 +42,8 @@ Secuencia simplificada de `startApp()` en `src/app.ts`:
 4. Registro de modulos de `src/modules.ts` (comandos/queries/eventos).
 5. Construccion del `InteractionRouter` con handlers slash.
 6. Suscripcion a eventos nativos de Discord (`interactionCreate`, `guildMemberAdd`, `messageCreate`, etc).
-7. Inicio de `HealthServer` y login del bot.
+7. Inicio de `HealthServer` y `AdminServer` para operacion y configuracion.
+8. Login del bot en Discord.
 
 ## Flujos principales
 
@@ -117,6 +119,11 @@ Patrones de indices:
   - `/healthz`
   - `/readyz`
   - `/metrics`
+- Endpoints de configuracion admin (`ADMIN_PORT`):
+  - `GET /api/guilds`
+  - `GET /api/guilds/:guildId/channels`
+  - `GET /api/guilds/:guildId/settings`
+  - `PUT /api/guilds/:guildId/settings`
 
 ## Como agregar un nuevo comando
 

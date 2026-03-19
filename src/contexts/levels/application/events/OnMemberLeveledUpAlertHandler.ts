@@ -38,6 +38,7 @@ export class OnMemberLeveledUpAlertHandler {
 
       const channelId =
         settings.channels.levelUpChannelId ??
+        settings.channels.alertChannelId ??
         (await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId));
 
       if (!channelId) {

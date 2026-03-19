@@ -1,4 +1,5 @@
 import {
+  ChannelType,
   Client,
   GatewayIntentBits,
   GuildMember,
@@ -206,6 +207,68 @@ export class DiscordGateway {
   public async getGuildName(guildId: string): Promise<string> {
     const guild = await this.client.guilds.fetch(guildId);
     return guild.name;
+  }
+
+  public async listGuilds(): Promise<{ id: string; name: string }[]> {
+    if (this.client.isReady()) {
+      return [...this.client.guilds.cache.values()]
+        .map((guild) => ({ id: guild.id, name: guild.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const guilds = await this.client.guilds.fetch();
+    return [...guilds.values()]
+      .map((guild) => ({ id: guild.id, name: guild.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  public async listConfigurableChannels(guildId: string): Promise<
+    {
+      id: string;
+      name: string;
+      category?: string;
+      kind: "text" | "announcement";
+      position: number;
+    }[]
+  > {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channels = await guild.channels.fetch();
+
+    const configurableChannels: {
+      id: string;
+      name: string;
+      category?: string;
+      kind: "text" | "announcement";
+      position: number;
+    }[] = [];
+
+    for (const channel of channels.values()) {
+      if (!channel) {
+        continue;
+      }
+
+      if (
+        channel.type !== ChannelType.GuildText &&
+        channel.type !== ChannelType.GuildAnnouncement
+      ) {
+        continue;
+      }
+
+      configurableChannels.push({
+        id: channel.id,
+        name: channel.name,
+        category: channel.parent?.name ?? undefined,
+        kind: channel.type === ChannelType.GuildAnnouncement ? "announcement" : "text",
+        position: channel.rawPosition
+      });
+    }
+
+    return configurableChannels.sort((a, b) => {
+      if (a.position !== b.position) {
+        return a.position - b.position;
+      }
+      return a.name.localeCompare(b.name);
+    });
   }
 
   public async getDefaultAnnouncementChannelId(guildId: string): Promise<string | null> {

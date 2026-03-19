@@ -7,6 +7,7 @@ Base de bot de Discord lista para crecer en features, trafico y equipo.
 - Arquitectura por modulos (`guilds`, `guild-settings`, `members`, `levels`, `roles`, `welcome`, `goodbye`, `moderation`, `administration`).
 - Comandos slash para administracion, moderacion, niveles y roles, mas flujos automaticos de bienvenida/despedida.
 - Comando `/help` con respuesta contextual para usuarios y administradores.
+- Panel web admin en React + API HTTP para configurar canales y feature flags por servidor.
 - Mensajeria enriquecida con embeds para respuestas de comandos y errores operativos.
 - Persistencia MongoDB con indices y preparacion para outbox.
 - Historial de calculo de XP por voz en MongoDB (`voice_xp_history`) con detalle por sesion/usuario.
@@ -86,6 +87,11 @@ Opcional para desarrollo rapido en una sola guild:
 - `DISCORD_GUILD_ID`
 - `LOG_PRETTY` (`true` para logs legibles en consola local)
 
+Variables para panel admin:
+
+- `ADMIN_PORT` (por defecto `3002`)
+- `ADMIN_API_TOKEN` (opcional, recomendado en produccion)
+
 ## Docker local
 
 ```bash
@@ -97,3 +103,12 @@ docker compose up --build
 - `GET /healthz`
 - `GET /readyz`
 - `GET /metrics`
+
+## Panel de configuracion
+
+- URL base: `http://localhost:<ADMIN_PORT>`
+- API:
+  - `GET /api/guilds`
+  - `GET /api/guilds/:guildId/channels`
+  - `GET /api/guilds/:guildId/settings`
+  - `PUT /api/guilds/:guildId/settings`

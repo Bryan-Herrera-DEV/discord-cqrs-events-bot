@@ -6,6 +6,7 @@ import type { DomainEventHandler } from "@shared/application/EventBus";
 import type { Logger } from "@shared/infrastructure/logger/Logger";
 
 import type { WelcomeImageGeneratorPort } from "@contexts/welcome/application/ports/WelcomeImageGeneratorPort";
+import type { GuildSettingsRepository } from "@contexts/guild-settings/application/ports/GuildSettingsRepository";
 import type { DiscordGateway } from "@platform/discord/DiscordGateway";
 
 const renderGoodbyeMessage = (payload: GoodbyeMessageRequestedPayload): string =>
@@ -14,13 +15,18 @@ const renderGoodbyeMessage = (payload: GoodbyeMessageRequestedPayload): string =
 export class OnGoodbyeMessageRequestedHandler {
   public constructor(
     private readonly imageGenerator: WelcomeImageGeneratorPort,
+    private readonly guildSettingsRepository: GuildSettingsRepository,
     private readonly discord: DiscordGateway,
     private readonly logger: Logger
   ) {}
 
   public build(): DomainEventHandler<DomainEvent<GoodbyeMessageRequestedPayload>> {
     return async (event) => {
-      const channelId = await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId);
+      const settings = await this.guildSettingsRepository.findByGuildId(event.payload.guildId);
+      const channelId =
+        settings?.channels.goodbyeChannelId ??
+        settings?.channels.newsChannelId ??
+        (await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId));
       if (!channelId) {
         this.logger.warn("goodbye.channel.not-found", { guildId: event.payload.guildId });
         return;

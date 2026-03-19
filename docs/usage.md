@@ -5,6 +5,7 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 ## Que funcionalidades incluye hoy
 
 - Administracion general por guild (`/admin ...`).
+- Panel admin web para configuracion de canales/flags sin slash commands.
 - Moderacion con casos auditables (`/mod ...`).
 - Sistema de niveles por actividad de mensajes y tiempo en voz (`/level ...`).
 - Respuestas de comandos en embeds consistentes (exitos, avisos y errores).
@@ -76,6 +77,13 @@ Permisos: `Administrator` o `ManageGuild` (o rol administrativo segun policy int
   - Sin parametros: muestra configuracion de alertas de niveles.
   - Con parametros: activa/desactiva alertas y define el canal de anuncios.
 
+Canales relevantes de configuracion:
+
+- `botCommandChannelIds`: si se configura, el bot solo acepta comandos slash en esos canales.
+- `administrationChannelIds`: si se configura, `/admin ...` solo funciona en esos canales.
+- `newsChannelId`: fallback para anuncios generales (bienvenida/despedida).
+- `alertChannelId`: fallback para alertas y logs cuando no hay canal especifico por modulo.
+
 ## `/level`
 
 Permisos: sin requisito especial.
@@ -101,10 +109,10 @@ Comportamiento importante:
 
 ## Bienvenida y despedida
 
-- No tienen comandos de configuracion.
+- Se configuran desde panel web admin o por settings internos.
 - Usan un formato unico para todas las guilds.
 - Incluyen imagen generada con avatar del usuario.
-- Se publican en el canal por defecto del servidor (system channel o primer canal de texto disponible).
+- Prioridad de canal: configuracion propia (`welcome/goodbye`), luego `newsChannelId`, luego canal por defecto del servidor.
 
 ## `/mod`
 
@@ -134,3 +142,12 @@ Cada accion crea caso de moderacion y, si hay `logs_channel`, envia log estructu
 - `GET /healthz`: estado general y uptime.
 - `GET /readyz`: readiness (Mongo + Discord listos).
 - `GET /metrics`: metricas Prometheus (`bot_commands_total`, `bot_command_failures_total`, `bot_events_total`, `bot_active_guilds`).
+
+## Panel web y API de configuracion
+
+- Panel: `http://localhost:<ADMIN_PORT>`
+- API admin:
+  - `GET /api/guilds`
+  - `GET /api/guilds/:guildId/channels`
+  - `GET /api/guilds/:guildId/settings`
+  - `PUT /api/guilds/:guildId/settings`

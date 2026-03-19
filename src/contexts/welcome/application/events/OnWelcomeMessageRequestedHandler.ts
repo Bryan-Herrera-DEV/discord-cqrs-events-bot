@@ -6,6 +6,7 @@ import type { WelcomeMessageRequestedPayload } from "@shared/domain/events/BotEv
 import type { Logger } from "@shared/infrastructure/logger/Logger";
 
 import type { WelcomeImageGeneratorPort } from "@contexts/welcome/application/ports/WelcomeImageGeneratorPort";
+import type { GuildSettingsRepository } from "@contexts/guild-settings/application/ports/GuildSettingsRepository";
 import type { DiscordGateway } from "@platform/discord/DiscordGateway";
 
 const renderWelcomeMessage = (payload: WelcomeMessageRequestedPayload): string =>
@@ -14,13 +15,18 @@ const renderWelcomeMessage = (payload: WelcomeMessageRequestedPayload): string =
 export class OnWelcomeMessageRequestedHandler {
   public constructor(
     private readonly imageGenerator: WelcomeImageGeneratorPort,
+    private readonly guildSettingsRepository: GuildSettingsRepository,
     private readonly discord: DiscordGateway,
     private readonly logger: Logger
   ) {}
 
   public build(): DomainEventHandler<DomainEvent<WelcomeMessageRequestedPayload>> {
     return async (event) => {
-      const channelId = await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId);
+      const settings = await this.guildSettingsRepository.findByGuildId(event.payload.guildId);
+      const channelId =
+        settings?.channels.welcomeChannelId ??
+        settings?.channels.newsChannelId ??
+        (await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId));
       if (!channelId) {
         this.logger.warn("welcome.channel.not-found", { guildId: event.payload.guildId });
         return;

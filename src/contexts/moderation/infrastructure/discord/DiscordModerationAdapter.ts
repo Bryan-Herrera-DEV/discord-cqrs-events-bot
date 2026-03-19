@@ -42,7 +42,12 @@ export class DiscordModerationAdapter implements ModerationExecutionPort {
     await this.discord.timeoutMember(guildId, targetUserId, durationMs, reason);
   }
 
-  public async purge(guildId: string, channelId: string, amount: number, reason: string): Promise<number> {
+  public async purge(
+    guildId: string,
+    channelId: string,
+    amount: number,
+    reason: string
+  ): Promise<number> {
     return this.discord.purgeMessages(guildId, channelId, amount, reason);
   }
 
@@ -56,7 +61,8 @@ export class DiscordModerationAdapter implements ModerationExecutionPort {
     metadata?: Record<string, unknown>;
   }): Promise<void> {
     const settings = await this.guildSettingsRepository.findByGuildId(input.guildId);
-    if (!settings?.channels.logsChannelId) {
+    const channelId = settings?.channels.logsChannelId ?? settings?.channels.alertChannelId;
+    if (!channelId) {
       return;
     }
 
@@ -70,7 +76,7 @@ export class DiscordModerationAdapter implements ModerationExecutionPort {
       details.push(`Metadata: ${JSON.stringify(input.metadata)}`);
     }
 
-    await this.discord.sendMessage(settings.channels.logsChannelId, {
+    await this.discord.sendMessage(channelId, {
       embeds: [
         new EmbedBuilder()
           .setTitle(`${titleByAction[input.actionType]} ejecutado`)

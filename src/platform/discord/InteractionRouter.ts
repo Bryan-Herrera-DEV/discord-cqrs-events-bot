@@ -5,11 +5,14 @@ import {
 } from "discord.js";
 
 import { ApplicationError } from "@shared/application/errors";
+import type { InMemoryQueryBus } from "@shared/application/QueryBus";
 import type { Logger } from "@shared/infrastructure/logger/Logger";
 import type { MetricsRegistry } from "@shared/infrastructure/observability/metrics";
 import type { CommandIdempotencyStore } from "@shared/infrastructure/idempotency/CommandIdempotencyStore";
 import type { RateLimiter } from "@shared/infrastructure/rate-limit/RateLimiter";
 import { dangerEmbed, infoEmbed, warningEmbed } from "@platform/discord/MessageEmbeds";
+import { GetGuildSettingsQuery } from "@contexts/guild-settings/application/queries/GetGuildSettingsQuery";
+import type { GuildSettings } from "@contexts/guild-settings/domain/GuildSettings";
 
 export interface SlashCommandHandler {
   readonly commandName: string;
@@ -25,7 +28,8 @@ export class InteractionRouter {
     private readonly metrics: MetricsRegistry,
     private readonly idempotencyStore: CommandIdempotencyStore,
     private readonly rateLimiter: RateLimiter,
-    private readonly idempotencyTtlSeconds: number
+    private readonly idempotencyTtlSeconds: number,
+    private readonly queryBus: InMemoryQueryBus
   ) {
     this.handlers = new Map(handlers.map((handler) => [handler.commandName, handler]));
   }
@@ -36,6 +40,19 @@ export class InteractionRouter {
       await this.replySafe(interaction, {
         ephemeral: true,
         embeds: [infoEmbed("Comando no disponible", "Este comando todavía no está implementado.")]
+      });
+      return;
+    }
+
+    if (!(await this.isAllowedCommandChannel(interaction))) {
+      await this.replySafe(interaction, {
+        ephemeral: true,
+        embeds: [
+          warningEmbed(
+            "Canal no permitido",
+            "Este comando solo puede ejecutarse en los canales autorizados por la administracion."
+          )
+        ]
       });
       return;
     }
@@ -92,6 +109,39 @@ export class InteractionRouter {
       );
       await this.handleError(interaction, error, interaction.commandName);
     }
+  }
+
+  private async isAllowedCommandChannel(
+    interaction: ChatInputCommandInteraction
+  ): Promise<boolean> {
+    if (!interaction.guildId) {
+      return true;
+    }
+
+    let settings: GuildSettings;
+    try {
+      settings = await this.queryBus.execute<GuildSettings>(
+        new GetGuildSettingsQuery({ guildId: interaction.guildId })
+      );
+    } catch (error) {
+      this.logger.warn("interaction.channel-policy.lookup-failed", {
+        guildId: interaction.guildId,
+        commandName: interaction.commandName,
+        error
+      });
+      return true;
+    }
+
+    const allowedChannelIds = settings.channels.botCommandChannelIds ?? [];
+    if (allowedChannelIds.length === 0) {
+      return true;
+    }
+
+    if (!interaction.channelId) {
+      return false;
+    }
+
+    return allowedChannelIds.includes(interaction.channelId);
   }
 
   private async handleError(

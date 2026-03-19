@@ -12,6 +12,10 @@ export interface GuildChannels {
   levelUpChannelId?: string;
   welcomeChannelId?: string;
   goodbyeChannelId?: string;
+  newsChannelId?: string;
+  alertChannelId?: string;
+  administrationChannelIds?: string[];
+  botCommandChannelIds?: string[];
 }
 
 export interface PermissionPolicies {
@@ -44,7 +48,10 @@ export const defaultGuildSettings = (guildId: string): GuildSettings => {
       goodbyeEnabled: true,
       rolesEnabled: true
     },
-    channels: {},
+    channels: {
+      administrationChannelIds: [],
+      botCommandChannelIds: []
+    },
     permissionPolicies: {
       adminRoleIds: [],
       moderatorRoleIds: [],

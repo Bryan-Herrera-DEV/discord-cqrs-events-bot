@@ -9,6 +9,7 @@ import { PinoLogger } from "@shared/infrastructure/logger/PinoLogger";
 import { MongoConnection } from "@shared/infrastructure/mongodb/MongoConnection";
 import { MetricsRegistry } from "@shared/infrastructure/observability/metrics";
 import { HealthServer } from "@shared/infrastructure/health/HealthServer";
+import { AdminServer } from "@shared/infrastructure/admin/AdminServer";
 import { DiscordGateway } from "@platform/discord/DiscordGateway";
 import { InteractionRouter } from "@platform/discord/InteractionRouter";
 import { SlashCommandRegistry } from "@platform/discord/SlashCommandRegistry";
@@ -131,7 +132,8 @@ export const startApp = async (): Promise<RunningApp> => {
     metrics,
     idempotencyStore,
     rateLimiter,
-    env.IDEMPOTENCY_TTL_SECONDS
+    env.IDEMPOTENCY_TTL_SECONDS,
+    queryBus
   );
 
   discord.onReady(async () => {
@@ -417,6 +419,16 @@ export const startApp = async (): Promise<RunningApp> => {
   const healthServer = new HealthServer(env.HEALTH_PORT, mongo, discord, metrics, logger);
   healthServer.start();
 
+  const adminServer = new AdminServer(
+    env.ADMIN_PORT,
+    queryBus,
+    commandBus,
+    discord,
+    logger.child({ layer: "admin-server" }),
+    env.ADMIN_API_TOKEN
+  );
+  adminServer.start();
+
   await discord.start(env.DISCORD_TOKEN);
 
   const onUnhandledError = (error: unknown): void => {
@@ -430,6 +442,7 @@ export const startApp = async (): Promise<RunningApp> => {
   return {
     stop: async (): Promise<void> => {
       healthServer.stop();
+      adminServer.stop();
       await mongo.disconnect();
     }
   };
