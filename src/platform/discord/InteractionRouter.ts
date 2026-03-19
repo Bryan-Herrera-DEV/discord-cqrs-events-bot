@@ -133,6 +133,16 @@ export class InteractionRouter {
     }
 
     const allowedChannelIds = settings.channels.botCommandChannelIds ?? [];
+    const adminChannelIds = settings.channels.administrationChannelIds ?? [];
+
+    if (interaction.commandName === "admin" && adminChannelIds.length > 0) {
+      if (!interaction.channelId) {
+        return false;
+      }
+
+      return adminChannelIds.includes(interaction.channelId);
+    }
+
     if (allowedChannelIds.length === 0) {
       return true;
     }

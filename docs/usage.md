@@ -34,7 +34,7 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - Se ejecuta `GrantMessageXpCommand`.
 - Se aplica cooldown de XP por usuario.
 - Si supera umbral de nivel, se emite `MemberLeveledUp`.
-- Si las alertas estan activas, se publica una card NAPI en chat con el nivel/tier alcanzado.
+- Si las alertas estan activas y `alertChannelId` esta configurado, se publica una card NAPI con el nivel/tier alcanzado.
 
 ### Al entrar/salir de llamada de voz
 
@@ -75,14 +75,16 @@ Permisos: `Administrator` o `ManageGuild` (o rol administrativo segun policy int
   - Con parametros: actualiza campos de configuracion global.
 - `/admin levels [alerts_enabled] [alerts_channel]`
   - Sin parametros: muestra configuracion de alertas de niveles.
-  - Con parametros: activa/desactiva alertas y define el canal de anuncios.
+  - Con parametros: activa/desactiva alertas y define el canal de alertas.
 
 Canales relevantes de configuracion:
 
-- `botCommandChannelIds`: si se configura, el bot solo acepta comandos slash en esos canales.
-- `administrationChannelIds`: si se configura, `/admin ...` solo funciona en esos canales.
-- `newsChannelId`: fallback para anuncios generales (bienvenida/despedida).
-- `alertChannelId`: fallback para alertas y logs cuando no hay canal especifico por modulo.
+- `botCommandChannelIds`: canal(es) publico(s) donde se permiten comandos slash.
+- `administrationChannelIds`: canal(es) donde se permite `/admin ...`.
+- `alertChannelId`: canal exclusivo para alertas de niveles.
+- `welcomeChannelId`: canal exclusivo para bienvenida.
+- `goodbyeChannelId`: canal exclusivo para despedida.
+- `logsChannelId`: canal exclusivo para reportes de administracion y moderacion.
 
 ## `/level`
 
@@ -112,7 +114,8 @@ Comportamiento importante:
 - Se configuran desde panel web admin o por settings internos.
 - Usan un formato unico para todas las guilds.
 - Incluyen imagen generada con avatar del usuario.
-- Prioridad de canal: configuracion propia (`welcome/goodbye`), luego `newsChannelId`, luego canal por defecto del servidor.
+- Solo se publican si el canal correspondiente esta configurado.
+- Si el canal no esta configurado, no se envia mensaje en ningun otro canal.
 
 ## `/mod`
 

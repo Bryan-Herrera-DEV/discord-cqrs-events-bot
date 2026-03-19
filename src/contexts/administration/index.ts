@@ -6,12 +6,29 @@ import type { SlashCommandRegistry } from "@platform/discord/SlashCommandRegistr
 
 import { AdminPingQuery } from "@contexts/administration/application/queries/AdminPingQuery";
 import { AdminPingHandler } from "@contexts/administration/application/queries/AdminPingHandler";
+import { OnGuildConfigurationChangedLogHandler } from "@contexts/administration/application/events/OnGuildConfigurationChangedLogHandler";
+import type { GuildSettingsRepository } from "@contexts/guild-settings/application/ports/GuildSettingsRepository";
 
 export class AdministrationModule implements BotModule {
   public readonly name = "administration";
 
   public async register(context: AppContext): Promise<void> {
     context.queryBus.register(AdminPingQuery.type, new AdminPingHandler());
+
+    const guildSettingsRepository = (
+      context as unknown as {
+        guildSettingsRepository: GuildSettingsRepository;
+      }
+    ).guildSettingsRepository;
+
+    context.eventBus.subscribe(
+      "GuildConfigurationChanged",
+      new OnGuildConfigurationChangedLogHandler(
+        guildSettingsRepository,
+        context.discord,
+        context.logger.child({ module: "administration" })
+      ).build()
+    );
   }
 
   public registerSlashCommands(registry: SlashCommandRegistry): void {

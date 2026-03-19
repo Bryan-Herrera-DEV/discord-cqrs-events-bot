@@ -61,7 +61,7 @@ export class DiscordModerationAdapter implements ModerationExecutionPort {
     metadata?: Record<string, unknown>;
   }): Promise<void> {
     const settings = await this.guildSettingsRepository.findByGuildId(input.guildId);
-    const channelId = settings?.channels.logsChannelId ?? settings?.channels.alertChannelId;
+    const channelId = settings?.channels.logsChannelId;
     if (!channelId) {
       return;
     }

@@ -36,13 +36,10 @@ export class OnMemberLeveledUpAlertHandler {
         return;
       }
 
-      const channelId =
-        settings.channels.levelUpChannelId ??
-        settings.channels.alertChannelId ??
-        (await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId));
+      const channelId = settings.channels.alertChannelId;
 
       if (!channelId) {
-        this.logger.warn("levels.alert.channel.not-found", {
+        this.logger.warn("levels.alert.channel.not-configured", {
           guildId: event.payload.guildId
         });
         return;

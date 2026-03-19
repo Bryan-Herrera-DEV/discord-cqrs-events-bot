@@ -109,9 +109,8 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
           goodbyeChannelId: "",
           logsChannelId: "",
           alertChannelId: "",
-          levelUpChannelId: "",
           administrationChannelIds: [],
-          botCommandChannelIds: []
+          commandChannelId: ""
         }
       });
 
@@ -131,10 +130,14 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
             goodbyeChannelId: (settings.channels && settings.channels.goodbyeChannelId) || "",
             logsChannelId: (settings.channels && settings.channels.logsChannelId) || "",
             alertChannelId: (settings.channels && settings.channels.alertChannelId) || "",
-            levelUpChannelId: (settings.channels && settings.channels.levelUpChannelId) || "",
             administrationChannelIds:
               (settings.channels && settings.channels.administrationChannelIds) || [],
-            botCommandChannelIds: (settings.channels && settings.channels.botCommandChannelIds) || []
+            commandChannelId:
+              (settings.channels &&
+                Array.isArray(settings.channels.botCommandChannelIds) &&
+                settings.channels.botCommandChannelIds.length > 0 &&
+                settings.channels.botCommandChannelIds[0]) ||
+              ""
           }
         };
       };
@@ -321,9 +324,10 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
                   goodbyeChannelId: form.channels.goodbyeChannelId || null,
                   logsChannelId: form.channels.logsChannelId || null,
                   alertChannelId: form.channels.alertChannelId || null,
-                  levelUpChannelId: form.channels.levelUpChannelId || null,
                   administrationChannelIds: form.channels.administrationChannelIds,
-                  botCommandChannelIds: form.channels.botCommandChannelIds
+                  botCommandChannelIds: form.channels.commandChannelId
+                    ? [form.channels.commandChannelId]
+                    : []
                 }
               })
             });
@@ -504,8 +508,8 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
                         )}
                       </Grid>
                       <Grid item xs={12} md={6}>
-                        {renderChannelSelect("Canal alertas de nivel", form.channels.levelUpChannelId, (value) =>
-                          updateChannelField("levelUpChannelId", value)
+                        {renderChannelSelect("Canal publico para comandos", form.channels.commandChannelId, (value) =>
+                          updateChannelField("commandChannelId", value)
                         )}
                       </Grid>
                       <Grid item xs={12}>
@@ -527,37 +531,6 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
                               const value = event.target.value;
                               updateChannelField(
                                 "administrationChannelIds",
-                                typeof value === "string" ? value.split(",") : value
-                              );
-                            }}
-                          >
-                            {channels.map((channel) => (
-                              <MenuItem key={channel.id} value={channel.id}>
-                                {channelTitle(channel)}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel>Canales unicos para comandos del bot</InputLabel>
-                          <Select
-                            multiple
-                            value={form.channels.botCommandChannelIds}
-                            label="Canales unicos para comandos del bot"
-                            input={<OutlinedInput label="Canales unicos para comandos del bot" />}
-                            renderValue={(selected) => (
-                              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                                {selected.map((channelId) => (
-                                  <Chip key={channelId} label={channelLabels[channelId] || channelId} size="small" />
-                                ))}
-                              </Box>
-                            )}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              updateChannelField(
-                                "botCommandChannelIds",
                                 typeof value === "string" ? value.split(",") : value
                               );
                             }}

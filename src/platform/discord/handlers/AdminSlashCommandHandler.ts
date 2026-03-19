@@ -78,7 +78,7 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
                   `Moderación: ${settings.featureFlags.moderationEnabled ? "Activa" : "Inactiva"}`,
                   `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`,
                   `Alertas de nivel: ${settings.featureFlags.levelUpAlertsEnabled ? "Activas" : "Inactivas"}`,
-                  `Canal alertas nivel: ${settings.channels.levelUpChannelId ? `<#${settings.channels.levelUpChannelId}>` : "Por defecto del servidor"}`
+                  `Canal de alertas: ${settings.channels.alertChannelId ? `<#${settings.channels.alertChannelId}>` : "No configurado"}`
                 ].join("\n")
               )
           ]
@@ -131,7 +131,7 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
                 [
                   `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`,
                   `Alertas de subida: ${settings.featureFlags.levelUpAlertsEnabled ? "Activas" : "Inactivas"}`,
-                  `Canal alertas: ${settings.channels.levelUpChannelId ? `<#${settings.channels.levelUpChannelId}>` : "Por defecto del servidor"}`
+                  `Canal alertas: ${settings.channels.alertChannelId ? `<#${settings.channels.alertChannelId}>` : "No configurado"}`
                 ].join("\n")
               )
           ]
@@ -144,7 +144,7 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
           guildId,
           changedBy: interaction.user.id,
           channels: {
-            levelUpChannelId: alertsChannel?.id
+            alertChannelId: alertsChannel?.id
           },
           featureFlags: {
             levelUpAlertsEnabled: alertsEnabled ?? undefined

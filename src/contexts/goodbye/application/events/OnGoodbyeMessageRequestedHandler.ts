@@ -23,12 +23,13 @@ export class OnGoodbyeMessageRequestedHandler {
   public build(): DomainEventHandler<DomainEvent<GoodbyeMessageRequestedPayload>> {
     return async (event) => {
       const settings = await this.guildSettingsRepository.findByGuildId(event.payload.guildId);
-      const channelId =
-        settings?.channels.goodbyeChannelId ??
-        settings?.channels.newsChannelId ??
-        (await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId));
+      if (settings && !settings.featureFlags.goodbyeEnabled) {
+        return;
+      }
+
+      const channelId = settings?.channels.goodbyeChannelId;
       if (!channelId) {
-        this.logger.warn("goodbye.channel.not-found", { guildId: event.payload.guildId });
+        this.logger.warn("goodbye.channel.not-configured", { guildId: event.payload.guildId });
         return;
       }
 

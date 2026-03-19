@@ -23,12 +23,13 @@ export class OnWelcomeMessageRequestedHandler {
   public build(): DomainEventHandler<DomainEvent<WelcomeMessageRequestedPayload>> {
     return async (event) => {
       const settings = await this.guildSettingsRepository.findByGuildId(event.payload.guildId);
-      const channelId =
-        settings?.channels.welcomeChannelId ??
-        settings?.channels.newsChannelId ??
-        (await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId));
+      if (settings && !settings.featureFlags.welcomeEnabled) {
+        return;
+      }
+
+      const channelId = settings?.channels.welcomeChannelId;
       if (!channelId) {
-        this.logger.warn("welcome.channel.not-found", { guildId: event.payload.guildId });
+        this.logger.warn("welcome.channel.not-configured", { guildId: event.payload.guildId });
         return;
       }
 
