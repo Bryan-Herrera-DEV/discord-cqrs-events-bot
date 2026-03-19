@@ -136,7 +136,7 @@ export class NapiCanvasWelcomeImageGenerator implements WelcomeImageGeneratorPor
 
     const title = trimAndFallback(
       input.title,
-      variant === "goodbye" ? "Hasta pronto" : "Bienvenido/a"
+      variant === "goodbye" ? "Adiós, ctmr" : "Bienvenido/a"
     );
     const displayName = trimAndFallback(input.displayName, "Invitado");
     const username = trimAndFallback(input.username, displayName);

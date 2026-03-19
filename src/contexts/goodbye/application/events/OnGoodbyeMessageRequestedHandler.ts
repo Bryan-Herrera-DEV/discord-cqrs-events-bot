@@ -46,7 +46,7 @@ export class OnGoodbyeMessageRequestedHandler {
         displayName: payload.displayName,
         username,
         avatarUrl: payload.avatarUrl,
-        title: "Hasta pronto",
+        title: "Adiós, ctmr",
         subtitle: `@${username}`,
         accentColor,
         variant: "goodbye"
