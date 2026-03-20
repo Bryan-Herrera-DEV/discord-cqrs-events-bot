@@ -15,6 +15,14 @@ const envSchema = z.object({
     (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
     z.string().min(8).optional()
   ),
+  FFMPEG_PATH: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().min(1).optional()
+  ),
+  YOUTUBE_COOKIE: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().min(16).optional()
+  ),
   XP_MIN_GAIN: z.coerce.number().int().positive().default(10),
   XP_MAX_GAIN: z.coerce.number().int().positive().default(20),
   XP_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(45),

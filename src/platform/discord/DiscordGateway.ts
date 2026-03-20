@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  type ButtonInteraction,
   Client,
   GatewayIntentBits,
   GuildMember,
@@ -41,6 +42,17 @@ export class DiscordGateway {
   ): void {
     this.client.on("interactionCreate", (interaction: Interaction) => {
       if (!interaction.isChatInputCommand()) {
+        return;
+      }
+      void handler(interaction);
+    });
+  }
+
+  public onButtonInteractionCreate(
+    handler: (interaction: ButtonInteraction) => Promise<void>
+  ): void {
+    this.client.on("interactionCreate", (interaction: Interaction) => {
+      if (!interaction.isButton()) {
         return;
       }
       void handler(interaction);
@@ -106,6 +118,10 @@ export class DiscordGateway {
 
   public isReady(): boolean {
     return this.client.isReady();
+  }
+
+  public getClient(): Client {
+    return this.client;
   }
 
   public guildCount(): number {
@@ -269,6 +285,52 @@ export class DiscordGateway {
       }
       return a.name.localeCompare(b.name);
     });
+  }
+
+  public async getMostPopulatedVoiceChannel(guildId: string): Promise<{
+    channelId: string;
+    channelName: string;
+    participantCount: number;
+  } | null> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channels = await guild.channels.fetch();
+
+    let bestChannel: { channelId: string; channelName: string; participantCount: number } | null =
+      null;
+
+    for (const channel of channels.values()) {
+      if (!channel || !channel.isVoiceBased() || !("members" in channel)) {
+        continue;
+      }
+
+      const participantCount = [...channel.members.values()].filter(
+        (member) => !member.user.bot
+      ).length;
+      if (participantCount === 0) {
+        continue;
+      }
+
+      if (!bestChannel || participantCount > bestChannel.participantCount) {
+        bestChannel = {
+          channelId: channel.id,
+          channelName: channel.name,
+          participantCount
+        };
+      }
+    }
+
+    return bestChannel;
+  }
+
+  public async getVoiceChannelHumanCount(guildId: string, channelId: string): Promise<number> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channel = await guild.channels.fetch(channelId);
+
+    if (!channel || !channel.isVoiceBased() || !("members" in channel)) {
+      return 0;
+    }
+
+    return [...channel.members.values()].filter((member) => !member.user.bot).length;
   }
 
   public async getDefaultAnnouncementChannelId(guildId: string): Promise<string | null> {

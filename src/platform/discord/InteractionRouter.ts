@@ -19,6 +19,19 @@ export interface SlashCommandHandler {
   handle(interaction: ChatInputCommandInteraction<CacheType>): Promise<void>;
 }
 
+const isUnknownInteractionError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybeError = error as {
+    code?: number | string;
+    rawError?: { code?: number | string };
+  };
+
+  return maybeError.code === 10062 || maybeError.rawError?.code === 10062;
+};
+
 export class InteractionRouter {
   private readonly handlers: Map<string, SlashCommandHandler>;
 
@@ -143,6 +156,14 @@ export class InteractionRouter {
       return adminChannelIds.includes(interaction.channelId);
     }
 
+    if (interaction.commandName === "music" && settings.channels.musicCommandChannelId) {
+      if (!interaction.channelId) {
+        return false;
+      }
+
+      return interaction.channelId === settings.channels.musicCommandChannelId;
+    }
+
     if (allowedChannelIds.length === 0) {
       return true;
     }
@@ -190,10 +211,23 @@ export class InteractionRouter {
     interaction: ChatInputCommandInteraction,
     payload: InteractionReplyOptions
   ): Promise<void> {
-    if (interaction.deferred || interaction.replied) {
-      await interaction.followUp(payload);
-      return;
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.followUp(payload);
+        return;
+      }
+      await interaction.reply(payload);
+    } catch (error) {
+      if (isUnknownInteractionError(error)) {
+        this.logger.warn("interaction.reply.unknown", {
+          interactionId: interaction.id,
+          commandName: interaction.commandName,
+          error
+        });
+        return;
+      }
+
+      throw error;
     }
-    await interaction.reply(payload);
   }
 }

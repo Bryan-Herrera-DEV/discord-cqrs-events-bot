@@ -8,6 +8,7 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - Panel admin web para configuracion de canales/flags sin slash commands.
 - Moderacion con casos auditables (`/mod ...`).
 - Sistema de niveles por actividad de mensajes y tiempo en voz (`/level ...`).
+- Bot de musica con YouTube, cola y panel de controles (`/music ...`).
 - Respuestas de comandos en embeds consistentes (exitos, avisos y errores).
 - Gestion de roles con validacion de jerarquia (`/role ...`).
 - Bienvenida automatica con formato fijo e imagen.
@@ -81,6 +82,7 @@ Canales relevantes de configuracion:
 
 - `botCommandChannelIds`: canal(es) publico(s) donde se permiten comandos slash.
 - `administrationChannelIds`: canal(es) donde se permite `/admin ...`.
+- `musicCommandChannelId`: canal exclusivo del bot de musica (solo comandos).
 - `alertChannelId`: canal exclusivo para alertas de niveles.
 - `welcomeChannelId`: canal exclusivo para bienvenida.
 - `goodbyeChannelId`: canal exclusivo para despedida.
@@ -94,6 +96,35 @@ Permisos: sin requisito especial.
   - Muestra tarjeta grafica con nivel, rank, XP, progreso y tier actual.
 - `/level leaderboard [limit]`
   - Muestra ranking de niveles (1-20, default 10).
+
+## `/music`
+
+Permisos: sin requisito especial (ejecucion limitada al `musicCommandChannelId`).
+
+- `/music play query:<texto|url>`
+  - Busca en YouTube (o usa URL), agrega a cola y reproduce.
+  - El bot se une al canal de voz con mas participantes humanos.
+  - Si no hay participantes en voz, no se une ni reproduce.
+  - Si YouTube bloquea el stream en algunas URLs, configura `YOUTUBE_COOKIE` en `.env`.
+
+Runtime recomendado para musica:
+
+- `discord-player` + `@discord-player/extractor` (stack oficial).
+- `@discord-player/downloader` (para bridge de stream en tracks de Spotify cuando no hay stream directo).
+- `@snazzah/davey` (soporte de cifrado DAVE en voz).
+- FFmpeg disponible (por sistema, `FFMPEG_PATH` o `ffmpeg-static`).
+- Libreria Opus instalada (`mediaplex`, recomendado por la documentacion oficial de discord-player).
+- `/music skip`
+  - Pasa a la siguiente cancion.
+- `/music queue`
+  - Muestra la cola actual.
+- `/music panel`
+  - Publica un embed con botones para saltar, pausar/reanudar, detener y ver cola.
+
+Regla del canal de musica:
+
+- Si alguien escribe un mensaje normal en `musicCommandChannelId`, el bot lo elimina.
+- Luego envia aviso al usuario indicando que el canal es solo para comandos de musica.
 
 ## `/role`
 

@@ -46,6 +46,8 @@ Variables clave:
 - `HEALTH_PORT` (default `3001`)
 - `ADMIN_PORT` (default `3002`)
 - `ADMIN_API_TOKEN` (opcional, recomendado para proteger la API admin)
+- `FFMPEG_PATH` (opcional, ruta a ffmpeg si no quieres usar `ffmpeg-static`)
+- `YOUTUBE_COOKIE` (opcional, se envia como header HTTP para mejorar compatibilidad en algunas URLs bloqueadas)
 - `COMMAND_RATE_LIMIT_PER_MINUTE` (default `20`)
 - `IDEMPOTENCY_TTL_SECONDS` (default `600`)
 

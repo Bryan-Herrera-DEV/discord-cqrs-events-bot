@@ -6,6 +6,7 @@ Base de bot de Discord lista para crecer en features, trafico y equipo.
 
 - Arquitectura por modulos (`guilds`, `guild-settings`, `members`, `levels`, `roles`, `welcome`, `goodbye`, `moderation`, `administration`).
 - Comandos slash para administracion, moderacion, niveles y roles, mas flujos automaticos de bienvenida/despedida.
+- Bot de musica con YouTube, cola de reproduccion y panel de controles por botones.
 - Comando `/help` con respuesta contextual para usuarios y administradores.
 - Panel web admin en React + API HTTP para configurar canales y feature flags por servidor.
 - Mensajeria enriquecida con embeds para respuestas de comandos y errores operativos.
@@ -91,6 +92,19 @@ Variables para panel admin:
 
 - `ADMIN_PORT` (por defecto `3002`)
 - `ADMIN_API_TOKEN` (opcional, recomendado en produccion)
+
+Variables para musica (YouTube):
+
+- `FFMPEG_PATH` (opcional, ruta a binario ffmpeg del sistema)
+- `YOUTUBE_COOKIE` (opcional, se envia como header HTTP para mejorar compatibilidad en algunas URLs bloqueadas)
+
+Dependencias oficiales de `discord-player` usadas en este proyecto:
+
+- `discord-player`
+- `@discord-player/extractor`
+- `@discord-player/downloader` (bridge de streams para fuentes como Spotify)
+- `@snazzah/davey` (soporte DAVE requerido por `discord-voip` en conexiones de voz)
+- `mediaplex` (recomendado por la documentacion oficial para soporte Opus)
 
 ## Docker local
 

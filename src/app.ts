@@ -22,6 +22,8 @@ import {
   AdminSlashCommandHandler,
   HelpSlashCommandHandler,
   LevelSlashCommandHandler,
+  MusicButtonInteractionHandler,
+  MusicSlashCommandHandler,
   ModerationSlashCommandHandler,
   RoleSlashCommandHandler
 } from "@platform/discord/handlers";
@@ -30,6 +32,9 @@ import { GrantVoiceXpCommand } from "@contexts/levels/application/commands/Grant
 import { InitializeLevelProfileCommand } from "@contexts/levels/application/commands/InitializeLevelProfileCommand";
 import { MarkGuildRemovedCommand } from "@contexts/guilds/application/commands/MarkGuildRemovedCommand";
 import { RegisterGuildCommand } from "@contexts/guilds/application/commands/RegisterGuildCommand";
+import { GetGuildSettingsQuery } from "@contexts/guild-settings/application/queries/GetGuildSettingsQuery";
+import type { GuildSettings } from "@contexts/guild-settings/domain/GuildSettings";
+import type { MusicPlaybackPort } from "@contexts/music/application/ports/MusicPlaybackPort";
 
 const parseDbName = (mongoUri: string): string => {
   try {
@@ -120,12 +125,19 @@ export const startApp = async (): Promise<RunningApp> => {
     logger.info("module.registered", { module: module.name });
   }
 
+  const musicPlaybackService = (
+    context as unknown as {
+      musicPlaybackService?: MusicPlaybackPort;
+    }
+  ).musicPlaybackService;
+
   const interactionRouter = new InteractionRouter(
     [
       new HelpSlashCommandHandler(queryBus, discord),
       new AdminSlashCommandHandler(commandBus, queryBus, discord),
       new RoleSlashCommandHandler(commandBus, queryBus, discord),
       new LevelSlashCommandHandler(queryBus),
+      new MusicSlashCommandHandler(commandBus, queryBus),
       new ModerationSlashCommandHandler(commandBus, queryBus, discord)
     ],
     logger.child({ layer: "interaction-router" }),
@@ -143,6 +155,11 @@ export const startApp = async (): Promise<RunningApp> => {
 
   discord.onInteractionCreate(async (interaction) => {
     await interactionRouter.handle(interaction);
+  });
+
+  const musicButtonHandler = new MusicButtonInteractionHandler(commandBus, queryBus);
+  discord.onButtonInteractionCreate(async (interaction) => {
+    await musicButtonHandler.handle(interaction);
   });
 
   interface VoiceParticipantSession {
@@ -369,6 +386,54 @@ export const startApp = async (): Promise<RunningApp> => {
     if (!message.guildId || message.author.bot) {
       return;
     }
+
+    let musicCommandChannelId: string | undefined;
+    try {
+      const settings = await queryBus.execute<GuildSettings>(
+        new GetGuildSettingsQuery({ guildId: message.guildId })
+      );
+      musicCommandChannelId = settings.channels.musicCommandChannelId;
+    } catch (error) {
+      logger.warn("music.channel.settings.lookup-failed", {
+        guildId: message.guildId,
+        channelId: message.channelId,
+        error
+      });
+    }
+
+    if (musicCommandChannelId && message.channelId === musicCommandChannelId) {
+      try {
+        await message.delete();
+      } catch (error) {
+        logger.warn("music.channel.message-delete.failed", {
+          guildId: message.guildId,
+          channelId: message.channelId,
+          messageId: message.id,
+          error
+        });
+      }
+
+      if (message.channel.isTextBased() && "send" in message.channel) {
+        try {
+          const warning = await message.channel.send({
+            content: `<@${message.author.id}> este canal es solo para comandos del bot de musica.`
+          });
+          setTimeout(() => {
+            void warning.delete().catch(() => undefined);
+          }, 8000);
+        } catch (error) {
+          logger.warn("music.channel.warning-send.failed", {
+            guildId: message.guildId,
+            channelId: message.channelId,
+            messageId: message.id,
+            error
+          });
+        }
+      }
+
+      return;
+    }
+
     await commandBus.execute(
       new GrantMessageXpCommand({
         guildId: message.guildId,
@@ -413,6 +478,10 @@ export const startApp = async (): Promise<RunningApp> => {
     if (newState.channelId) {
       await startOrResumeParticipantSession(guildId, newState.channelId, userId, nowMs);
       await syncActiveParticipantsInChannel(guildId, newState.channelId, nowMs);
+    }
+
+    if (musicPlaybackService) {
+      await musicPlaybackService.handleVoiceStateUpdate(guildId);
     }
   });
 

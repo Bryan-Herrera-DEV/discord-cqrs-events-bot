@@ -109,6 +109,7 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
           goodbyeChannelId: "",
           logsChannelId: "",
           alertChannelId: "",
+          musicCommandChannelId: "",
           administrationChannelIds: [],
           commandChannelId: ""
         }
@@ -130,6 +131,8 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
             goodbyeChannelId: (settings.channels && settings.channels.goodbyeChannelId) || "",
             logsChannelId: (settings.channels && settings.channels.logsChannelId) || "",
             alertChannelId: (settings.channels && settings.channels.alertChannelId) || "",
+            musicCommandChannelId:
+              (settings.channels && settings.channels.musicCommandChannelId) || "",
             administrationChannelIds:
               (settings.channels && settings.channels.administrationChannelIds) || [],
             commandChannelId:
@@ -324,6 +327,7 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
                   goodbyeChannelId: form.channels.goodbyeChannelId || null,
                   logsChannelId: form.channels.logsChannelId || null,
                   alertChannelId: form.channels.alertChannelId || null,
+                  musicCommandChannelId: form.channels.musicCommandChannelId || null,
                   administrationChannelIds: form.channels.administrationChannelIds,
                   botCommandChannelIds: form.channels.commandChannelId
                     ? [form.channels.commandChannelId]
@@ -505,6 +509,13 @@ export const renderAdminDashboardPage = (): string => `<!doctype html>
                       <Grid item xs={12} md={6}>
                         {renderChannelSelect("Canal de logs", form.channels.logsChannelId, (value) =>
                           updateChannelField("logsChannelId", value)
+                        )}
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        {renderChannelSelect(
+                          "Canal del bot de musica (solo comandos)",
+                          form.channels.musicCommandChannelId,
+                          (value) => updateChannelField("musicCommandChannelId", value)
                         )}
                       </Grid>
                       <Grid item xs={12} md={6}>

@@ -14,6 +14,7 @@ export interface GuildChannels {
   goodbyeChannelId?: string;
   newsChannelId?: string;
   alertChannelId?: string;
+  musicCommandChannelId?: string;
   administrationChannelIds?: string[];
   botCommandChannelIds?: string[];
 }

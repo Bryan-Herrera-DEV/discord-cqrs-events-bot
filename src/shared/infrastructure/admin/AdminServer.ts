@@ -38,6 +38,7 @@ const updateSettingsSchema = z
         goodbyeChannelId: nullableChannelIdSchema.optional(),
         newsChannelId: nullableChannelIdSchema.optional(),
         alertChannelId: nullableChannelIdSchema.optional(),
+        musicCommandChannelId: nullableChannelIdSchema.optional(),
         administrationChannelIds: z.array(channelIdSchema).max(25).optional(),
         botCommandChannelIds: z.array(channelIdSchema).max(25).optional()
       })
@@ -243,6 +244,9 @@ export class AdminServer {
     if (hasOwn(channels, "alertChannelId")) {
       patch.alertChannelId = channels.alertChannelId ?? undefined;
     }
+    if (hasOwn(channels, "musicCommandChannelId")) {
+      patch.musicCommandChannelId = channels.musicCommandChannelId ?? undefined;
+    }
     if (hasOwn(channels, "administrationChannelIds")) {
       patch.administrationChannelIds = channels.administrationChannelIds ?? [];
     }
@@ -279,6 +283,9 @@ export class AdminServer {
     }
     if (patch.alertChannelId) {
       requestedChannelIds.add(patch.alertChannelId);
+    }
+    if (patch.musicCommandChannelId) {
+      requestedChannelIds.add(patch.musicCommandChannelId);
     }
     for (const channelId of patch.administrationChannelIds ?? []) {
       requestedChannelIds.add(channelId);

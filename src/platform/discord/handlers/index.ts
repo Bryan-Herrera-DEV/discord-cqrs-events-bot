@@ -5,3 +5,5 @@ export { LevelSlashCommandHandler } from "@platform/discord/handlers/LevelSlashC
 export { WelcomeSlashCommandHandler } from "@platform/discord/handlers/WelcomeSlashCommandHandler";
 export { GoodbyeSlashCommandHandler } from "@platform/discord/handlers/GoodbyeSlashCommandHandler";
 export { ModerationSlashCommandHandler } from "@platform/discord/handlers/ModerationSlashCommandHandler";
+export { MusicSlashCommandHandler } from "@platform/discord/handlers/MusicSlashCommandHandler";
+export { MusicButtonInteractionHandler } from "@platform/discord/handlers/MusicButtonInteractionHandler";

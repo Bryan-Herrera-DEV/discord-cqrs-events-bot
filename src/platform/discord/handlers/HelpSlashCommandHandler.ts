@@ -8,7 +8,9 @@ import { infoEmbed, successEmbed } from "@platform/discord/MessageEmbeds";
 const commonCommands = [
   "`/help`: Muestra esta guía rápida de comandos.",
   "`/level me [user]`: Consulta tu nivel o el de otro usuario.",
-  "`/level leaderboard [limit]`: Muestra el ranking de XP del servidor."
+  "`/level leaderboard [limit]`: Muestra el ranking de XP del servidor.",
+  "`/music play <query>`: Agrega una cancion de YouTube a la cola.",
+  "`/music queue`: Muestra la cola de canciones del bot de musica."
 ].join("\n");
 
 const adminCommands = [
