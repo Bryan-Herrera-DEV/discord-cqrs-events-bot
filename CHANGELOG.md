@@ -1,3 +1,14 @@
+## [0.2.0-dev.2](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/compare/v0.2.0-dev.1...v0.2.0-dev.2) (2026-03-20)
+
+### Features
+
+* add admin dashboard and settings management ([b03a2ad](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/commit/b03a2ad00ad21dd234d1b1de97429856ac4bfb23))
+* adjust XP gain calculation and cooldown timing in GrantMessageXpHandler ([6066b3c](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/commit/6066b3c837436caeb5d87a338aa814a5407ff1ab))
+* enhance channel configuration and logging for guild settings ([19fa47f](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/commit/19fa47f3bbd842112f469c1e3405a2472cc54844))
+* implement music playback features including enqueue, skip, pause, stop, and queue retrieval ([4bac95d](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/commit/4bac95d1593ee5b32bdb6f30c605203f1f147d73))
+* update goodbye message title to "Adiós, ctmr" ([5024862](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/commit/5024862311493792313113dbbfc24ad5b2dae525))
+* update music playback to support Spotify links and remove YouTube references ([b311c26](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/commit/b311c2690e261ee7d0549c32dbe9c9af4a067c51))
+
 ## [0.2.0-dev.1](https://github.com/Bryan-Herrera-DEV/discord-cqrs-events-bot/compare/v0.1.0...v0.2.0-dev.1) (2026-03-18)
 
 ### Features
