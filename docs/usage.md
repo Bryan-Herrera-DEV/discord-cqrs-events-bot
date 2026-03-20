@@ -8,7 +8,7 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - Panel admin web para configuracion de canales/flags sin slash commands.
 - Moderacion con casos auditables (`/mod ...`).
 - Sistema de niveles por actividad de mensajes y tiempo en voz (`/level ...`).
-- Bot de musica con YouTube, cola y panel de controles (`/music ...`).
+- Bot de musica con enlaces de Spotify, cola y panel de controles (`/music ...`).
 - Respuestas de comandos en embeds consistentes (exitos, avisos y errores).
 - Gestion de roles con validacion de jerarquia (`/role ...`).
 - Bienvenida automatica con formato fijo e imagen.
@@ -101,11 +101,12 @@ Permisos: sin requisito especial.
 
 Permisos: sin requisito especial (ejecucion limitada al `musicCommandChannelId`).
 
-- `/music play query:<texto|url>`
-  - Busca en YouTube (o usa URL), agrega a cola y reproduce.
+- `/music play query:<url_spotify>`
+  - Acepta solo enlaces de Spotify (`track`, `album` o `playlist`).
+  - Si el enlace no es de Spotify, el comando se rechaza.
   - El bot se une al canal de voz con mas participantes humanos.
   - Si no hay participantes en voz, no se une ni reproduce.
-  - Si YouTube bloquea el stream en algunas URLs, configura `YOUTUBE_COOKIE` en `.env`.
+  - Si falla el bridge interno hacia YouTube para algun track, configura `YOUTUBE_COOKIE` en `.env`.
 
 Runtime recomendado para musica:
 

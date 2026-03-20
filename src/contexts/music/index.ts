@@ -66,7 +66,10 @@ export class MusicModule implements BotModule {
             .setName("play")
             .setDescription("Agrega una cancion de Spotify a la cola")
             .addStringOption((option) =>
-              option.setName("query").setDescription("URL o nombre de la cancion").setRequired(true)
+              option
+                .setName("query")
+                .setDescription("URL de Spotify (track, album o playlist)")
+                .setRequired(true)
             )
         )
         .addSubcommand((subcommand) =>

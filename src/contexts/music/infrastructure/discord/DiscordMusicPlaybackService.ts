@@ -35,17 +35,9 @@ const toMusicTrack = (
 
 const STREAM_EXTRACTION_ERROR_CODES = new Set(["ERR_NO_RESULT", "ERR_NO_STREAM"]);
 const URL_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
-const BARE_YOUTUBE_URL_PATTERN =
-  /^(?:www\.)?(?:youtube\.com|m\.youtube\.com|music\.youtube\.com|gaming\.youtube\.com|youtu\.be)\//i;
-const YOUTUBE_HOSTS = new Set([
-  "youtube.com",
-  "www.youtube.com",
-  "m.youtube.com",
-  "music.youtube.com",
-  "gaming.youtube.com",
-  "youtu.be"
-]);
+const BARE_SPOTIFY_URL_PATTERN = /^(?:open|play)\.spotify\.com\//i;
 const SPOTIFY_HOSTS = new Set(["open.spotify.com", "play.spotify.com"]);
+const SPOTIFY_PATH_PATTERN = /^\/(?:(?:intl-[a-z]{2})\/)?(track|album|playlist)\/([a-z0-9]+)$/i;
 
 const DEFAULT_QUEUE_OPTIONS: GuildNodeCreateOptions = {
   selfDeaf: true,
@@ -76,28 +68,57 @@ interface YtDlpSearchResponse {
   id?: string;
 }
 
+type SpotifyEntityType = "track" | "album" | "playlist";
+
 interface ResolvedPlaybackQuery {
   value: string;
-  isUrl: boolean;
+  entityType: SpotifyEntityType;
 }
 
-const toUrl = (value: string): URL | null => {
+const resolvePlaybackQuery = (rawQuery: string): ResolvedPlaybackQuery => {
+  const trimmedQuery = rawQuery.trim();
+  if (!trimmedQuery) {
+    throw new ValidationError("Debes enviar un enlace de Spotify valido.");
+  }
+
+  const withScheme =
+    URL_SCHEME_PATTERN.test(trimmedQuery) || !BARE_SPOTIFY_URL_PATTERN.test(trimmedQuery)
+      ? trimmedQuery
+      : `https://${trimmedQuery}`;
+
+  let parsed: URL;
   try {
-    return new URL(value);
+    parsed = new URL(withScheme);
   } catch {
-    return null;
-  }
-};
-
-const isSpotifyTrackUrl = (value: string): boolean => {
-  const parsed = toUrl(value);
-  if (!parsed) {
-    return false;
+    throw new ValidationError("Solo se aceptan enlaces de Spotify.");
   }
 
-  return (
-    SPOTIFY_HOSTS.has(parsed.hostname.toLowerCase()) && /^\/track\/[a-z0-9]+/i.test(parsed.pathname)
-  );
+  const hostname = parsed.hostname.toLowerCase();
+  if (!SPOTIFY_HOSTS.has(hostname)) {
+    throw new ValidationError("Solo se aceptan enlaces de Spotify.");
+  }
+
+  const normalizedPath = parsed.pathname.replace(/\/+$/, "");
+  const match = normalizedPath.match(SPOTIFY_PATH_PATTERN);
+  if (!match) {
+    throw new ValidationError(
+      "El enlace debe ser de Spotify y apuntar a un track, album o playlist."
+    );
+  }
+
+  const [, rawEntityType = "", entityId = ""] = match;
+  if (!rawEntityType || !entityId) {
+    throw new ValidationError(
+      "El enlace debe ser de Spotify y apuntar a un track, album o playlist."
+    );
+  }
+
+  const entityType = rawEntityType.toLowerCase() as SpotifyEntityType;
+
+  return {
+    value: `https://open.spotify.com/${entityType}/${entityId}`,
+    entityType
+  };
 };
 
 const getErrorCode = (error: unknown): string | undefined => {
@@ -159,57 +180,6 @@ const isStreamExtractionError = (error: unknown): boolean => {
 
 const toCanonicalYoutubeWatchUrl = (videoId: string): string =>
   `https://www.youtube.com/watch?v=${videoId}`;
-
-const resolvePlaybackQuery = (rawQuery: string): ResolvedPlaybackQuery => {
-  const trimmedQuery = rawQuery.trim();
-  if (!trimmedQuery) {
-    return { value: trimmedQuery, isUrl: false };
-  }
-
-  const withScheme =
-    URL_SCHEME_PATTERN.test(trimmedQuery) || !BARE_YOUTUBE_URL_PATTERN.test(trimmedQuery)
-      ? trimmedQuery
-      : `https://${trimmedQuery}`;
-
-  let parsed: URL;
-  try {
-    parsed = new URL(withScheme);
-  } catch {
-    return { value: withScheme, isUrl: false };
-  }
-
-  const hostname = parsed.hostname.toLowerCase();
-  if (!YOUTUBE_HOSTS.has(hostname)) {
-    return { value: withScheme, isUrl: true };
-  }
-
-  if (hostname === "youtu.be") {
-    const videoId = parsed.pathname.split("/").filter(Boolean)[0];
-    if (videoId) {
-      return { value: toCanonicalYoutubeWatchUrl(videoId), isUrl: true };
-    }
-
-    return { value: withScheme, isUrl: true };
-  }
-
-  if (parsed.pathname === "/watch") {
-    const videoId = parsed.searchParams.get("v");
-    if (videoId) {
-      return { value: toCanonicalYoutubeWatchUrl(videoId), isUrl: true };
-    }
-
-    return { value: withScheme, isUrl: true };
-  }
-
-  const pathSegments = parsed.pathname.split("/").filter(Boolean);
-  const videoPrefix = pathSegments[0];
-  const videoId = pathSegments[1];
-  if (videoPrefix && ["shorts", "embed", "live", "v"].includes(videoPrefix) && videoId) {
-    return { value: toCanonicalYoutubeWatchUrl(videoId), isUrl: true };
-  }
-
-  return { value: withScheme, isUrl: true };
-};
 
 export class DiscordMusicPlaybackService implements MusicPlaybackPort {
   private readonly player: Player;
@@ -289,12 +259,12 @@ export class DiscordMusicPlaybackService implements MusicPlaybackPort {
     try {
       playResult = await playbackQueue.play(resolvedQuery.value, {
         requestedBy: input.requestedByUserId,
-        searchEngine: resolvedQuery.isUrl ? "auto" : "youtube",
+        searchEngine: "auto",
         fallbackSearchEngine: "youtubeSearch",
         requestOptions: this.requestOptions
       });
     } catch (error) {
-      if (isStreamExtractionError(error) && isSpotifyTrackUrl(resolvedQuery.value)) {
+      if (isStreamExtractionError(error) && resolvedQuery.entityType === "track") {
         const fallbackPlayResult = await this.trySpotifyYoutubeFallback(
           playbackQueue,
           resolvedQuery.value,
@@ -314,7 +284,7 @@ export class DiscordMusicPlaybackService implements MusicPlaybackPort {
           });
 
           throw new ValidationError(
-            "No se pudo obtener el audio de ese track de Spotify. Intenta con otro enlace o busca la cancion por nombre."
+            "No se pudo obtener el audio de ese track de Spotify. Intenta con otro enlace de Spotify."
           );
         }
       } else if (isStreamExtractionError(error)) {

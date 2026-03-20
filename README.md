@@ -6,7 +6,7 @@ Base de bot de Discord lista para crecer en features, trafico y equipo.
 
 - Arquitectura por modulos (`guilds`, `guild-settings`, `members`, `levels`, `roles`, `welcome`, `goodbye`, `moderation`, `administration`).
 - Comandos slash para administracion, moderacion, niveles y roles, mas flujos automaticos de bienvenida/despedida.
-- Bot de musica con YouTube, cola de reproduccion y panel de controles por botones.
+- Bot de musica con enlaces de Spotify, cola de reproduccion y panel de controles por botones.
 - Comando `/help` con respuesta contextual para usuarios y administradores.
 - Panel web admin en React + API HTTP para configurar canales y feature flags por servidor.
 - Mensajeria enriquecida con embeds para respuestas de comandos y errores operativos.
