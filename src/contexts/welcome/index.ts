@@ -5,12 +5,18 @@ import type { SlashCommandRegistry } from "@platform/discord/SlashCommandRegistr
 import { NapiCanvasWelcomeImageGenerator } from "@contexts/welcome/infrastructure/image/NapiCanvasWelcomeImageGenerator";
 import { OnGuildMemberJoinedRequestWelcomeHandler } from "@contexts/welcome/application/events/OnGuildMemberJoinedRequestWelcomeHandler";
 import { OnWelcomeMessageRequestedHandler } from "@contexts/welcome/application/events/OnWelcomeMessageRequestedHandler";
+import type { GuildSettingsRepository } from "@contexts/guild-settings/application/ports/GuildSettingsRepository";
 
 export class WelcomeModule implements BotModule {
   public readonly name = "welcome";
 
   public async register(context: AppContext): Promise<void> {
     const imageGenerator = new NapiCanvasWelcomeImageGenerator();
+    const guildSettingsRepository = (
+      context as unknown as {
+        guildSettingsRepository: GuildSettingsRepository;
+      }
+    ).guildSettingsRepository;
 
     context.eventBus.subscribe(
       "GuildMemberJoined",
@@ -20,6 +26,7 @@ export class WelcomeModule implements BotModule {
       "WelcomeMessageRequested",
       new OnWelcomeMessageRequestedHandler(
         imageGenerator,
+        guildSettingsRepository,
         context.discord,
         context.logger.child({ module: "welcome" })
       ).build()

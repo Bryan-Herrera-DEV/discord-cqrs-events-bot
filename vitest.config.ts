@@ -13,10 +13,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
+    include: ["./src/tests/**/*.test.ts"],
     coverage: {
       reporter: ["text", "html"],
-      include: ["src/**/*.ts"]
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.test.ts", "src/**/index.ts"]
     }
   }
 });

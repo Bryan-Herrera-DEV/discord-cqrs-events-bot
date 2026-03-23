@@ -9,6 +9,7 @@ import { PinoLogger } from "@shared/infrastructure/logger/PinoLogger";
 import { MongoConnection } from "@shared/infrastructure/mongodb/MongoConnection";
 import { MetricsRegistry } from "@shared/infrastructure/observability/metrics";
 import { HealthServer } from "@shared/infrastructure/health/HealthServer";
+import { AdminServer } from "@shared/infrastructure/admin/AdminServer";
 import { DiscordGateway } from "@platform/discord/DiscordGateway";
 import { InteractionRouter } from "@platform/discord/InteractionRouter";
 import { SlashCommandRegistry } from "@platform/discord/SlashCommandRegistry";
@@ -19,7 +20,10 @@ import { BotEvents } from "@shared/domain/events/BotEvents";
 import { createEventId } from "@shared/domain/DomainEvent";
 import {
   AdminSlashCommandHandler,
+  HelpSlashCommandHandler,
   LevelSlashCommandHandler,
+  MusicButtonInteractionHandler,
+  MusicSlashCommandHandler,
   ModerationSlashCommandHandler,
   RoleSlashCommandHandler
 } from "@platform/discord/handlers";
@@ -28,6 +32,9 @@ import { GrantVoiceXpCommand } from "@contexts/levels/application/commands/Grant
 import { InitializeLevelProfileCommand } from "@contexts/levels/application/commands/InitializeLevelProfileCommand";
 import { MarkGuildRemovedCommand } from "@contexts/guilds/application/commands/MarkGuildRemovedCommand";
 import { RegisterGuildCommand } from "@contexts/guilds/application/commands/RegisterGuildCommand";
+import { GetGuildSettingsQuery } from "@contexts/guild-settings/application/queries/GetGuildSettingsQuery";
+import type { GuildSettings } from "@contexts/guild-settings/domain/GuildSettings";
+import type { MusicPlaybackPort } from "@contexts/music/application/ports/MusicPlaybackPort";
 
 const parseDbName = (mongoUri: string): string => {
   try {
@@ -118,18 +125,27 @@ export const startApp = async (): Promise<RunningApp> => {
     logger.info("module.registered", { module: module.name });
   }
 
+  const musicPlaybackService = (
+    context as unknown as {
+      musicPlaybackService?: MusicPlaybackPort;
+    }
+  ).musicPlaybackService;
+
   const interactionRouter = new InteractionRouter(
     [
+      new HelpSlashCommandHandler(queryBus, discord),
       new AdminSlashCommandHandler(commandBus, queryBus, discord),
       new RoleSlashCommandHandler(commandBus, queryBus, discord),
       new LevelSlashCommandHandler(queryBus),
+      new MusicSlashCommandHandler(commandBus, queryBus),
       new ModerationSlashCommandHandler(commandBus, queryBus, discord)
     ],
     logger.child({ layer: "interaction-router" }),
     metrics,
     idempotencyStore,
     rateLimiter,
-    env.IDEMPOTENCY_TTL_SECONDS
+    env.IDEMPOTENCY_TTL_SECONDS,
+    queryBus
   );
 
   discord.onReady(async () => {
@@ -141,8 +157,152 @@ export const startApp = async (): Promise<RunningApp> => {
     await interactionRouter.handle(interaction);
   });
 
-  const voiceSessionStartedAt = new Map<string, number>();
-  const toVoiceSessionKey = (guildId: string, userId: string): string => `${guildId}:${userId}`;
+  const musicButtonHandler = new MusicButtonInteractionHandler(commandBus, queryBus);
+  discord.onButtonInteractionCreate(async (interaction) => {
+    await musicButtonHandler.handle(interaction);
+  });
+
+  interface VoiceParticipantSession {
+    activeJoinedAt: number | null;
+    accumulatedMs: number;
+  }
+
+  interface VoiceChannelSession {
+    guildId: string;
+    channelId: string;
+    startedAt: number;
+    participants: Map<string, VoiceParticipantSession>;
+  }
+
+  const voiceSessions = new Map<string, VoiceChannelSession>();
+  const toVoiceChannelSessionKey = (guildId: string, channelId: string): string =>
+    `${guildId}:${channelId}`;
+
+  const pauseParticipantSession = (
+    session: VoiceChannelSession,
+    userId: string,
+    endedAtMs: number
+  ): void => {
+    const participant = session.participants.get(userId);
+    if (!participant || participant.activeJoinedAt === null) {
+      return;
+    }
+
+    participant.accumulatedMs += Math.max(0, endedAtMs - participant.activeJoinedAt);
+    participant.activeJoinedAt = null;
+  };
+
+  const sessionHasActiveParticipants = (session: VoiceChannelSession): boolean => {
+    for (const participant of session.participants.values()) {
+      if (participant.activeJoinedAt !== null) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const closeVoiceChannelSession = async (
+    session: VoiceChannelSession,
+    endedAtMs: number
+  ): Promise<void> => {
+    const sessionStartedAt = new Date(session.startedAt);
+    const sessionEndedAt = new Date(endedAtMs);
+
+    await Promise.all(
+      [...session.participants.entries()].map(async ([participantUserId, participant]) => {
+        const openIntervalMs =
+          participant.activeJoinedAt === null
+            ? 0
+            : Math.max(0, endedAtMs - participant.activeJoinedAt);
+        const participationMs = participant.accumulatedMs + openIntervalMs;
+
+        await commandBus.execute(
+          new GrantVoiceXpCommand({
+            guildId: session.guildId,
+            channelId: session.channelId,
+            userId: participantUserId,
+            sessionStartedAt,
+            sessionEndedAt,
+            participationMs,
+            xpPerMinute: env.VOICE_XP_PER_MINUTE,
+            maxMinutesPerSession: env.VOICE_XP_MAX_MINUTES_PER_SESSION
+          })
+        );
+      })
+    );
+  };
+
+  const startOrResumeParticipantSession = async (
+    guildId: string,
+    channelId: string,
+    userId: string,
+    startedAtMs: number
+  ): Promise<void> => {
+    await commandBus.execute(new InitializeLevelProfileCommand({ guildId, userId }));
+
+    const key = toVoiceChannelSessionKey(guildId, channelId);
+    let session = voiceSessions.get(key);
+    if (!session) {
+      session = {
+        guildId,
+        channelId,
+        startedAt: startedAtMs,
+        participants: new Map<string, VoiceParticipantSession>()
+      };
+      voiceSessions.set(key, session);
+    }
+
+    const participant = session.participants.get(userId);
+    if (!participant) {
+      session.participants.set(userId, {
+        activeJoinedAt: startedAtMs,
+        accumulatedMs: 0
+      });
+      return;
+    }
+
+    if (participant.activeJoinedAt === null) {
+      participant.activeJoinedAt = startedAtMs;
+    }
+  };
+
+  const syncActiveParticipantsInChannel = async (
+    guildId: string,
+    channelId: string,
+    observedAtMs: number
+  ): Promise<void> => {
+    const key = toVoiceChannelSessionKey(guildId, channelId);
+    const session = voiceSessions.get(key);
+    if (!session) {
+      return;
+    }
+
+    const activeUserIds = await discord.listVoiceChannelMemberIds(guildId, channelId);
+    if (activeUserIds.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      activeUserIds.map(async (activeUserId) => {
+        await commandBus.execute(
+          new InitializeLevelProfileCommand({ guildId, userId: activeUserId })
+        );
+
+        const participant = session.participants.get(activeUserId);
+        if (!participant) {
+          session.participants.set(activeUserId, {
+            activeJoinedAt: observedAtMs,
+            accumulatedMs: 0
+          });
+          return;
+        }
+
+        if (participant.activeJoinedAt === null) {
+          participant.activeJoinedAt = observedAtMs;
+        }
+      })
+    );
+  };
 
   discord.onGuildMemberAdd(async (member) => {
     await eventBus.publish(
@@ -200,9 +360,9 @@ export const startApp = async (): Promise<RunningApp> => {
   });
 
   discord.onGuildDelete(async (guildId) => {
-    for (const key of voiceSessionStartedAt.keys()) {
+    for (const key of voiceSessions.keys()) {
       if (key.startsWith(`${guildId}:`)) {
-        voiceSessionStartedAt.delete(key);
+        voiceSessions.delete(key);
       }
     }
     await commandBus.execute(new MarkGuildRemovedCommand({ guildId }));
@@ -226,6 +386,54 @@ export const startApp = async (): Promise<RunningApp> => {
     if (!message.guildId || message.author.bot) {
       return;
     }
+
+    let musicCommandChannelId: string | undefined;
+    try {
+      const settings = await queryBus.execute<GuildSettings>(
+        new GetGuildSettingsQuery({ guildId: message.guildId })
+      );
+      musicCommandChannelId = settings.channels.musicCommandChannelId;
+    } catch (error) {
+      logger.warn("music.channel.settings.lookup-failed", {
+        guildId: message.guildId,
+        channelId: message.channelId,
+        error
+      });
+    }
+
+    if (musicCommandChannelId && message.channelId === musicCommandChannelId) {
+      try {
+        await message.delete();
+      } catch (error) {
+        logger.warn("music.channel.message-delete.failed", {
+          guildId: message.guildId,
+          channelId: message.channelId,
+          messageId: message.id,
+          error
+        });
+      }
+
+      if (message.channel.isTextBased() && "send" in message.channel) {
+        try {
+          const warning = await message.channel.send({
+            content: `<@${message.author.id}> este canal es solo para comandos del bot de musica.`
+          });
+          setTimeout(() => {
+            void warning.delete().catch(() => undefined);
+          }, 8000);
+        } catch (error) {
+          logger.warn("music.channel.warning-send.failed", {
+            guildId: message.guildId,
+            channelId: message.channelId,
+            messageId: message.id,
+            error
+          });
+        }
+      }
+
+      return;
+    }
+
     await commandBus.execute(
       new GrantMessageXpCommand({
         guildId: message.guildId,
@@ -249,44 +457,46 @@ export const startApp = async (): Promise<RunningApp> => {
 
     const guildId = member.guild.id;
     const userId = member.user.id;
-    const key = toVoiceSessionKey(guildId, userId);
+    const nowMs = Date.now();
 
-    if (!oldState.channelId && newState.channelId) {
-      voiceSessionStartedAt.set(key, Date.now());
-      return;
+    if (oldState.channelId) {
+      const previousChannelKey = toVoiceChannelSessionKey(guildId, oldState.channelId);
+      const previousSession = voiceSessions.get(previousChannelKey);
+      if (previousSession) {
+        pauseParticipantSession(previousSession, userId, nowMs);
+        if (!sessionHasActiveParticipants(previousSession)) {
+          await syncActiveParticipantsInChannel(guildId, oldState.channelId, nowMs);
+
+          if (!sessionHasActiveParticipants(previousSession)) {
+            voiceSessions.delete(previousChannelKey);
+            await closeVoiceChannelSession(previousSession, nowMs);
+          }
+        }
+      }
     }
 
-    if (oldState.channelId && !newState.channelId) {
-      const startedAt = voiceSessionStartedAt.get(key);
-      voiceSessionStartedAt.delete(key);
-      if (!startedAt) {
-        return;
-      }
-
-      const minutes = Math.floor((Date.now() - startedAt) / 60_000);
-      if (minutes <= 0) {
-        return;
-      }
-
-      await commandBus.execute(
-        new GrantVoiceXpCommand({
-          guildId,
-          userId,
-          minutes,
-          xpPerMinute: env.VOICE_XP_PER_MINUTE,
-          maxMinutesPerSession: env.VOICE_XP_MAX_MINUTES_PER_SESSION
-        })
-      );
-      return;
+    if (newState.channelId) {
+      await startOrResumeParticipantSession(guildId, newState.channelId, userId, nowMs);
+      await syncActiveParticipantsInChannel(guildId, newState.channelId, nowMs);
     }
 
-    if (oldState.channelId && newState.channelId && !voiceSessionStartedAt.has(key)) {
-      voiceSessionStartedAt.set(key, Date.now());
+    if (musicPlaybackService) {
+      await musicPlaybackService.handleVoiceStateUpdate(guildId);
     }
   });
 
   const healthServer = new HealthServer(env.HEALTH_PORT, mongo, discord, metrics, logger);
   healthServer.start();
+
+  const adminServer = new AdminServer(
+    env.ADMIN_PORT,
+    queryBus,
+    commandBus,
+    discord,
+    logger.child({ layer: "admin-server" }),
+    env.ADMIN_API_TOKEN
+  );
+  adminServer.start();
 
   await discord.start(env.DISCORD_TOKEN);
 
@@ -301,6 +511,7 @@ export const startApp = async (): Promise<RunningApp> => {
   return {
     stop: async (): Promise<void> => {
       healthServer.stop();
+      adminServer.stop();
       await mongo.disconnect();
     }
   };

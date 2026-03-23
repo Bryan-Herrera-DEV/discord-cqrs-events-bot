@@ -6,6 +6,7 @@ import type { DomainEventHandler } from "@shared/application/EventBus";
 import type { Logger } from "@shared/infrastructure/logger/Logger";
 
 import type { WelcomeImageGeneratorPort } from "@contexts/welcome/application/ports/WelcomeImageGeneratorPort";
+import type { GuildSettingsRepository } from "@contexts/guild-settings/application/ports/GuildSettingsRepository";
 import type { DiscordGateway } from "@platform/discord/DiscordGateway";
 
 const renderGoodbyeMessage = (payload: GoodbyeMessageRequestedPayload): string =>
@@ -14,15 +15,21 @@ const renderGoodbyeMessage = (payload: GoodbyeMessageRequestedPayload): string =
 export class OnGoodbyeMessageRequestedHandler {
   public constructor(
     private readonly imageGenerator: WelcomeImageGeneratorPort,
+    private readonly guildSettingsRepository: GuildSettingsRepository,
     private readonly discord: DiscordGateway,
     private readonly logger: Logger
   ) {}
 
   public build(): DomainEventHandler<DomainEvent<GoodbyeMessageRequestedPayload>> {
     return async (event) => {
-      const channelId = await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId);
+      const settings = await this.guildSettingsRepository.findByGuildId(event.payload.guildId);
+      if (settings && !settings.featureFlags.goodbyeEnabled) {
+        return;
+      }
+
+      const channelId = settings?.channels.goodbyeChannelId;
       if (!channelId) {
-        this.logger.warn("goodbye.channel.not-found", { guildId: event.payload.guildId });
+        this.logger.warn("goodbye.channel.not-configured", { guildId: event.payload.guildId });
         return;
       }
 
@@ -38,13 +45,18 @@ export class OnGoodbyeMessageRequestedHandler {
   ): Promise<void> {
     let imageAttachment: AttachmentBuilder | null = null;
     let imageAvailable = false;
+    const accentColor = 0x8f3a2f;
+    const username = payload.username ?? payload.displayName;
 
     try {
       const image = await this.imageGenerator.generate({
         displayName: payload.displayName,
-        username: payload.displayName,
+        username,
         avatarUrl: payload.avatarUrl,
-        title: "Hasta pronto"
+        title: "Adiós, ctmr",
+        subtitle: `@${username}`,
+        accentColor,
+        variant: "goodbye"
       });
       imageAttachment = new AttachmentBuilder(image, { name: "goodbye.png" });
       imageAvailable = true;
@@ -56,15 +68,25 @@ export class OnGoodbyeMessageRequestedHandler {
     }
 
     try {
-      const embed = new EmbedBuilder().setColor(0x8f3a2f).setTitle("Hasta pronto");
+      const embed = new EmbedBuilder()
+        .setColor(accentColor)
+        .setTitle("Hasta pronto")
+        .setDescription(message)
+        .setAuthor({
+          name: payload.displayName,
+          iconURL: payload.avatarUrl
+        })
+        .setFooter({ text: "Sistema de despedidas" })
+        .setTimestamp();
+
       if (imageAvailable) {
         embed.setImage("attachment://goodbye.png");
       } else {
-        embed.setDescription(message);
+        embed.setThumbnail(payload.avatarUrl ?? null);
       }
 
       await this.discord.sendMessage(channelId, {
-        content: message,
+        content: `<@${payload.userId}>`,
         files: imageAttachment ? [imageAttachment] : [],
         embeds: [embed]
       });

@@ -10,6 +10,19 @@ const envSchema = z.object({
   MONGO_URI: z.string().min(1, "MONGO_URI es requerido"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   HEALTH_PORT: z.coerce.number().int().positive().default(3001),
+  ADMIN_PORT: z.coerce.number().int().positive().default(3002),
+  ADMIN_API_TOKEN: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().min(8).optional()
+  ),
+  FFMPEG_PATH: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().min(1).optional()
+  ),
+  YOUTUBE_COOKIE: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().min(16).optional()
+  ),
   XP_MIN_GAIN: z.coerce.number().int().positive().default(10),
   XP_MAX_GAIN: z.coerce.number().int().positive().default(20),
   XP_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(45),

@@ -18,6 +18,7 @@ El proyecto combina DDD pragmatico, arquitectura hexagonal, event-driven interno
 - Registro de slash commands: `src/platform/discord/SlashCommandRegistry.ts`.
 - Eventos de dominio tipados: `src/shared/domain/events/BotEvents.ts`.
 - Infraestructura transversal: Mongo, health, metricas, logs, idempotencia, rate limit en `src/shared/infrastructure`.
+- Admin UI/API: `src/shared/infrastructure/admin/AdminServer.ts` con dashboard React servido desde el backend.
 
 ## Estructura por contexto
 
@@ -41,7 +42,8 @@ Secuencia simplificada de `startApp()` en `src/app.ts`:
 4. Registro de modulos de `src/modules.ts` (comandos/queries/eventos).
 5. Construccion del `InteractionRouter` con handlers slash.
 6. Suscripcion a eventos nativos de Discord (`interactionCreate`, `guildMemberAdd`, `messageCreate`, etc).
-7. Inicio de `HealthServer` y login del bot.
+7. Inicio de `HealthServer` y `AdminServer` para operacion y configuracion.
+8. Login del bot en Discord.
 
 ## Flujos principales
 
@@ -81,8 +83,10 @@ Secuencia simplificada de `startApp()` en `src/app.ts`:
 ### 5) Voz y XP
 
 1. `DiscordGateway.onVoiceStateUpdate` detecta entrada/salida de canal.
-2. Al salir, `app.ts` calcula minutos de sesion y ejecuta `GrantVoiceXpCommand`.
-3. `levels` suma XP de voz al mismo perfil y publica `MemberLeveledUp` si corresponde.
+2. `app.ts` crea perfil de niveles al entrar a voz si no existe.
+3. `app.ts` abre sesion por canal al primer ingreso y la cierra cuando el canal queda sin usuarios humanos.
+4. Al cerrar la sesion, `app.ts` calcula participacion por usuario y ejecuta `GrantVoiceXpCommand`.
+5. `levels` suma XP de voz al mismo perfil, publica `MemberLeveledUp` si corresponde y guarda historial de calculo (`voice_xp_history`).
 
 ## Persistencia MongoDB
 
@@ -92,6 +96,7 @@ Colecciones actuales:
 - `guild_settings`
 - `member_profiles`
 - `level_profiles`
+- `voice_xp_history`
 - `role_configurations`
 - `moderation_cases`
 - `moderation_actions`
@@ -114,6 +119,11 @@ Patrones de indices:
   - `/healthz`
   - `/readyz`
   - `/metrics`
+- Endpoints de configuracion admin (`ADMIN_PORT`):
+  - `GET /api/guilds`
+  - `GET /api/guilds/:guildId/channels`
+  - `GET /api/guilds/:guildId/settings`
+  - `PUT /api/guilds/:guildId/settings`
 
 ## Como agregar un nuevo comando
 

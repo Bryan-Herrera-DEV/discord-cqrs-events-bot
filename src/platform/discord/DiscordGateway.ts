@@ -1,4 +1,6 @@
 import {
+  ChannelType,
+  type ButtonInteraction,
   Client,
   GatewayIntentBits,
   GuildMember,
@@ -40,6 +42,17 @@ export class DiscordGateway {
   ): void {
     this.client.on("interactionCreate", (interaction: Interaction) => {
       if (!interaction.isChatInputCommand()) {
+        return;
+      }
+      void handler(interaction);
+    });
+  }
+
+  public onButtonInteractionCreate(
+    handler: (interaction: ButtonInteraction) => Promise<void>
+  ): void {
+    this.client.on("interactionCreate", (interaction: Interaction) => {
+      if (!interaction.isButton()) {
         return;
       }
       void handler(interaction);
@@ -105,6 +118,10 @@ export class DiscordGateway {
 
   public isReady(): boolean {
     return this.client.isReady();
+  }
+
+  public getClient(): Client {
+    return this.client;
   }
 
   public guildCount(): number {
@@ -190,9 +207,130 @@ export class DiscordGateway {
     return [...member.roles.cache.keys()];
   }
 
+  public async getMemberProfile(
+    guildId: string,
+    userId: string
+  ): Promise<{ displayName: string; username: string; avatarUrl?: string }> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const member = await guild.members.fetch(userId);
+    return {
+      displayName: member.displayName,
+      username: member.user.username,
+      avatarUrl: member.displayAvatarURL({ extension: "png", forceStatic: false, size: 256 })
+    };
+  }
+
   public async getGuildName(guildId: string): Promise<string> {
     const guild = await this.client.guilds.fetch(guildId);
     return guild.name;
+  }
+
+  public async listGuilds(): Promise<{ id: string; name: string }[]> {
+    if (this.client.isReady()) {
+      return [...this.client.guilds.cache.values()]
+        .map((guild) => ({ id: guild.id, name: guild.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const guilds = await this.client.guilds.fetch();
+    return [...guilds.values()]
+      .map((guild) => ({ id: guild.id, name: guild.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  public async listConfigurableChannels(guildId: string): Promise<
+    {
+      id: string;
+      name: string;
+      category?: string;
+      kind: "text" | "announcement";
+      position: number;
+    }[]
+  > {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channels = await guild.channels.fetch();
+
+    const configurableChannels: {
+      id: string;
+      name: string;
+      category?: string;
+      kind: "text" | "announcement";
+      position: number;
+    }[] = [];
+
+    for (const channel of channels.values()) {
+      if (!channel) {
+        continue;
+      }
+
+      if (
+        channel.type !== ChannelType.GuildText &&
+        channel.type !== ChannelType.GuildAnnouncement
+      ) {
+        continue;
+      }
+
+      configurableChannels.push({
+        id: channel.id,
+        name: channel.name,
+        category: channel.parent?.name ?? undefined,
+        kind: channel.type === ChannelType.GuildAnnouncement ? "announcement" : "text",
+        position: channel.rawPosition
+      });
+    }
+
+    return configurableChannels.sort((a, b) => {
+      if (a.position !== b.position) {
+        return a.position - b.position;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  public async getMostPopulatedVoiceChannel(guildId: string): Promise<{
+    channelId: string;
+    channelName: string;
+    participantCount: number;
+  } | null> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channels = await guild.channels.fetch();
+
+    let bestChannel: { channelId: string; channelName: string; participantCount: number } | null =
+      null;
+
+    for (const channel of channels.values()) {
+      if (!channel || !channel.isVoiceBased() || !("members" in channel)) {
+        continue;
+      }
+
+      const participantCount = [...channel.members.values()].filter(
+        (member) => !member.user.bot
+      ).length;
+      if (participantCount === 0) {
+        continue;
+      }
+
+      if (!bestChannel || participantCount > bestChannel.participantCount) {
+        bestChannel = {
+          channelId: channel.id,
+          channelName: channel.name,
+          participantCount
+        };
+      }
+    }
+
+    return bestChannel;
+  }
+
+  public async getVoiceChannelHumanCount(guildId: string, channelId: string): Promise<number> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channel = await guild.channels.fetch(channelId);
+
+    if (!channel || !channel.isVoiceBased() || !("members" in channel)) {
+      return 0;
+    }
+
+    return [...channel.members.values()].filter((member) => !member.user.bot).length;
   }
 
   public async getDefaultAnnouncementChannelId(guildId: string): Promise<string | null> {
@@ -219,6 +357,23 @@ export class DiscordGateway {
     const guild = await this.client.guilds.fetch(guildId);
     const members = await guild.members.fetch();
     return members
+      .filter((member) => includeBots || !member.user.bot)
+      .map((member) => member.user.id);
+  }
+
+  public async listVoiceChannelMemberIds(
+    guildId: string,
+    channelId: string,
+    includeBots = false
+  ): Promise<string[]> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channel = await guild.channels.fetch(channelId);
+
+    if (!channel || !channel.isVoiceBased() || !("members" in channel)) {
+      return [];
+    }
+
+    return [...channel.members.values()]
       .filter((member) => includeBots || !member.user.bot)
       .map((member) => member.user.id);
   }
