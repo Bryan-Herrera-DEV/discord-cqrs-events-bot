@@ -17,16 +17,29 @@ interface GuildSettingsDocument {
   updatedAt: Date;
 }
 
-const toDomain = (doc: GuildSettingsDocument): GuildSettings => ({
-  guildId: doc.guildId,
-  language: doc.language,
-  featureFlags: doc.featureFlags,
-  channels: doc.channels,
-  permissionPolicies: doc.permissionPolicies,
-  moderationCaseSequence: doc.moderationCaseSequence,
-  createdAt: doc.createdAt,
-  updatedAt: doc.updatedAt
-});
+const toDomain = (doc: GuildSettingsDocument): GuildSettings => {
+  const defaults = defaultGuildSettings(doc.guildId);
+
+  return {
+    guildId: doc.guildId,
+    language: doc.language,
+    featureFlags: {
+      ...defaults.featureFlags,
+      ...doc.featureFlags
+    },
+    channels: {
+      ...defaults.channels,
+      ...doc.channels
+    },
+    permissionPolicies: {
+      ...defaults.permissionPolicies,
+      ...doc.permissionPolicies
+    },
+    moderationCaseSequence: doc.moderationCaseSequence,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt
+  };
+};
 
 export class MongoGuildSettingsRepository implements GuildSettingsRepository {
   private readonly collection: Collection<GuildSettingsDocument>;

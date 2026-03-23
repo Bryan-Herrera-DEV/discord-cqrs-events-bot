@@ -9,7 +9,7 @@ import type { LevelPolicy } from "@contexts/levels/domain/LevelPolicy";
 import { GrantMessageXpCommand } from "@contexts/levels/application/commands/GrantMessageXpCommand";
 
 const randomBetween = (min: number, max: number): number =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
+  Math.floor(Math.random() * (max - min + 1)) + min + 5;
 
 export class GrantMessageXpHandler implements CommandHandler<GrantMessageXpCommand, void> {
   public constructor(
@@ -39,8 +39,8 @@ export class GrantMessageXpHandler implements CommandHandler<GrantMessageXpComma
     }
 
     const now = new Date();
-    const cooldownMs = command.payload.cooldownSeconds * 1000;
-    if (profile.lastXpAt && now.getTime() - profile.lastXpAt.getTime() < cooldownMs) {
+    const cooldownMs = command.payload.cooldownSeconds * 25;
+    if (profile.lastXpAt && now.getTime() - profile.lastXpAt.getTime() < cooldownMs) { // !antispam: se puede ajustar el cooldown a nivel de guild
       return;
     }
 

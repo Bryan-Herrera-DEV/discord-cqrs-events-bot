@@ -13,6 +13,7 @@ export class OnGuildMemberLeftRequestGoodbyeHandler {
           guildId: event.payload.guildId,
           userId: event.payload.userId,
           displayName: event.payload.displayName,
+          username: event.payload.username,
           avatarUrl: event.payload.avatarUrl
         })
       );

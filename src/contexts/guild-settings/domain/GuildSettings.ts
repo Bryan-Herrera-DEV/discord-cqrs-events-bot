@@ -1,6 +1,7 @@
 export interface FeatureFlags {
   moderationEnabled: boolean;
   levelingEnabled: boolean;
+  levelUpAlertsEnabled: boolean;
   welcomeEnabled: boolean;
   goodbyeEnabled: boolean;
   rolesEnabled: boolean;
@@ -8,8 +9,14 @@ export interface FeatureFlags {
 
 export interface GuildChannels {
   logsChannelId?: string;
+  levelUpChannelId?: string;
   welcomeChannelId?: string;
   goodbyeChannelId?: string;
+  newsChannelId?: string;
+  alertChannelId?: string;
+  musicCommandChannelId?: string;
+  administrationChannelIds?: string[];
+  botCommandChannelIds?: string[];
 }
 
 export interface PermissionPolicies {
@@ -37,11 +44,15 @@ export const defaultGuildSettings = (guildId: string): GuildSettings => {
     featureFlags: {
       moderationEnabled: true,
       levelingEnabled: true,
+      levelUpAlertsEnabled: true,
       welcomeEnabled: true,
       goodbyeEnabled: true,
       rolesEnabled: true
     },
-    channels: {},
+    channels: {
+      administrationChannelIds: [],
+      botCommandChannelIds: []
+    },
     permissionPolicies: {
       adminRoleIds: [],
       moderatorRoleIds: [],

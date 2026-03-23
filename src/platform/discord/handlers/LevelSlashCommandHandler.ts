@@ -8,7 +8,9 @@ import { GetLevelLeaderboardQuery } from "@contexts/levels/application/queries/G
 import type { MyLevelView } from "@contexts/levels/application/queries/GetMyLevelQuery";
 import type { LeaderboardEntry } from "@contexts/levels/application/ports/LevelProfileRepository";
 import { LevelPolicy } from "@contexts/levels/domain/LevelPolicy";
+import { buildLevelTierLabel, resolveLevelTier } from "@contexts/levels/domain/LevelTier";
 import { NapiCanvasLevelCardGenerator } from "@contexts/levels/infrastructure/image/NapiCanvasLevelCardGenerator";
+import { infoEmbed } from "@platform/discord/MessageEmbeds";
 
 export class LevelSlashCommandHandler implements SlashCommandHandler {
   public readonly commandName = "level";
@@ -33,7 +35,12 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
       if (!result) {
         await interaction.reply({
           ephemeral: true,
-          content: "Este usuario aun no tiene perfil de nivel registrado."
+          embeds: [
+            infoEmbed(
+              "Sin perfil de nivel",
+              "Este usuario aún no tiene perfil de nivel registrado."
+            )
+          ]
         });
         return;
       }
@@ -42,6 +49,8 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
       const nextLevelBaseXp = this.levelPolicy.xpRequiredForLevel(result.level + 1);
       const xpIntoLevel = Math.max(0, result.xp - currentLevelBaseXp);
       const xpNeededInLevel = Math.max(1, nextLevelBaseXp - currentLevelBaseXp);
+      const tier = resolveLevelTier(result.level);
+      const tierLabel = buildLevelTierLabel(result.level);
 
       try {
         const image = await this.levelCardGenerator.generate({
@@ -59,10 +68,12 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
         await interaction.reply({
           embeds: [
             new EmbedBuilder()
-              .setColor(0x2d7a46)
+              .setColor(tier.accentColor)
               .setTitle(`Nivel de ${user.username}`)
               .setDescription(
                 [
+                  `Nivel actual: ${result.level}`,
+                  `Tier actual: ${tierLabel}`,
                   `Rank global: ${result.rank ?? "N/A"}`,
                   `XP para siguiente nivel: ${result.xpToNextLevel}`
                 ].join("\n")
@@ -79,11 +90,12 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
       await interaction.reply({
         embeds: [
           new EmbedBuilder()
-            .setColor(0x2d7a46)
+            .setColor(tier.accentColor)
             .setTitle(`Nivel de ${user.username}`)
             .setDescription(
               [
                 `Nivel: ${result.level}`,
+                `Tier: ${tierLabel}`,
                 `XP: ${result.xp}`,
                 `XP a siguiente nivel: ${result.xpToNextLevel}`,
                 `Rango: ${result.rank ?? "N/A"}`,
@@ -104,17 +116,49 @@ export class LevelSlashCommandHandler implements SlashCommandHandler {
         })
       );
 
+      if (leaderboard.length === 0) {
+        await interaction.reply({
+          embeds: [
+            infoEmbed(
+              "Leaderboard de niveles",
+              "Aún no hay datos para mostrar. Envía mensajes o participa en voz para ganar XP."
+            )
+          ]
+        });
+        return;
+      }
+
+      const topThree = leaderboard
+        .slice(0, 3)
+        .map((entry, index) => {
+          const medal = index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉";
+          return `${medal} <@${entry.userId}> · Nivel ${entry.level} · ${entry.xp} XP`;
+        })
+        .join("\n");
+
       const lines = leaderboard.map((entry, index) => {
-        const badge =
-          index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`;
-        return `${badge} <@${entry.userId}> - Nivel ${entry.level} (${entry.xp} XP)`;
+        const position = `${index + 1}.`.padStart(3, " ");
+        return `${position} <@${entry.userId}> · Nivel ${entry.level} · ${entry.xp} XP`;
       });
+
       await interaction.reply({
         embeds: [
           new EmbedBuilder()
             .setColor(0x1f4d78)
             .setTitle("Leaderboard de niveles")
-            .setDescription(lines.length > 0 ? lines.join("\n") : "Sin datos aun")
+            .setDescription("Ranking actual de actividad y experiencia del servidor.")
+            .addFields(
+              {
+                name: "Top 3",
+                value: topThree
+              },
+              {
+                name: `Top ${leaderboard.length}`,
+                value: lines.join("\n")
+              }
+            )
+            .setFooter({ text: `Solicitado por ${interaction.user.username} · Límite ${limit}` })
+            .setTimestamp()
         ]
       });
     }

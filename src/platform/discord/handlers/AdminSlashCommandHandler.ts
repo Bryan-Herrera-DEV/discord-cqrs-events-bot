@@ -4,6 +4,7 @@ import type { InMemoryCommandBus } from "@shared/application/CommandBus";
 import type { InMemoryQueryBus } from "@shared/application/QueryBus";
 import type { SlashCommandHandler } from "@platform/discord/InteractionRouter";
 import { CommandAuthorizationService } from "@platform/discord/CommandAuthorizationService";
+import { AuthorizationError } from "@shared/application/errors";
 
 import { AdminPingQuery } from "@contexts/administration/application/queries/AdminPingQuery";
 import { UpsertGuildSettingsCommand } from "@contexts/guild-settings/application/commands/UpsertGuildSettingsCommand";
@@ -29,6 +30,7 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
 
     if (subcommand === "ping") {
       await this.authorizationService.assertAdmin(interaction);
+      await this.loadSettingsAndAssertAdminChannel(interaction);
       const status = await this.queryBus.execute<AdminPingView>(new AdminPingQuery());
       await interaction.reply({
         ephemeral: true,
@@ -46,6 +48,7 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
     }
 
     await this.authorizationService.assertAdmin(interaction);
+    const guildSettings = await this.loadSettingsAndAssertAdminChannel(interaction);
     const guildId = interaction.guildId as string;
 
     if (subcommand === "config") {
@@ -61,7 +64,7 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
         !language;
 
       if (noPatchInput) {
-        const settings = await this.queryBus.execute<GuildSettings>(new GetGuildSettingsQuery({ guildId }));
+        const settings = guildSettings;
         await interaction.reply({
           ephemeral: true,
           embeds: [
@@ -73,7 +76,9 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
                   `Idioma: ${settings.language}`,
                   `Canal logs: ${settings.channels.logsChannelId ? `<#${settings.channels.logsChannelId}>` : "No configurado"}`,
                   `Moderación: ${settings.featureFlags.moderationEnabled ? "Activa" : "Inactiva"}`,
-                  `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`
+                  `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`,
+                  `Alertas de nivel: ${settings.featureFlags.levelUpAlertsEnabled ? "Activas" : "Inactivas"}`,
+                  `Canal de alertas: ${settings.channels.alertChannelId ? `<#${settings.channels.alertChannelId}>` : "No configurado"}`
                 ].join("\n")
               )
           ]
@@ -105,6 +110,78 @@ export class AdminSlashCommandHandler implements SlashCommandHandler {
             .setDescription("Los cambios de configuración se guardaron correctamente.")
         ]
       });
+      return;
     }
+
+    if (subcommand === "levels") {
+      const alertsEnabled = interaction.options.getBoolean("alerts_enabled");
+      const alertsChannel = interaction.options.getChannel("alerts_channel");
+
+      const noPatchInput = typeof alertsEnabled !== "boolean" && !alertsChannel;
+
+      if (noPatchInput) {
+        const settings = guildSettings;
+        await interaction.reply({
+          ephemeral: true,
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("Configuración de niveles")
+              .setColor(0x1f4d78)
+              .setDescription(
+                [
+                  `Niveles: ${settings.featureFlags.levelingEnabled ? "Activo" : "Inactivo"}`,
+                  `Alertas de subida: ${settings.featureFlags.levelUpAlertsEnabled ? "Activas" : "Inactivas"}`,
+                  `Canal alertas: ${settings.channels.alertChannelId ? `<#${settings.channels.alertChannelId}>` : "No configurado"}`
+                ].join("\n")
+              )
+          ]
+        });
+        return;
+      }
+
+      await this.commandBus.execute(
+        new UpsertGuildSettingsCommand({
+          guildId,
+          changedBy: interaction.user.id,
+          channels: {
+            alertChannelId: alertsChannel?.id
+          },
+          featureFlags: {
+            levelUpAlertsEnabled: alertsEnabled ?? undefined
+          }
+        })
+      );
+
+      await interaction.reply({
+        ephemeral: true,
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("Niveles actualizados")
+            .setColor(0x2d7a46)
+            .setDescription("La configuración de alertas de nivel fue guardada correctamente.")
+        ]
+      });
+    }
+  }
+
+  private async loadSettingsAndAssertAdminChannel(
+    interaction: ChatInputCommandInteraction
+  ): Promise<GuildSettings> {
+    const guildId = interaction.guildId;
+    if (!guildId) {
+      throw new AuthorizationError("Este comando solo puede ejecutarse en un servidor");
+    }
+
+    const guildSettings = await this.queryBus.execute<GuildSettings>(
+      new GetGuildSettingsQuery({ guildId })
+    );
+    const adminChannelIds = guildSettings.channels.administrationChannelIds ?? [];
+    if (adminChannelIds.length > 0 && !adminChannelIds.includes(interaction.channelId)) {
+      throw new AuthorizationError(
+        "Este comando admin solo puede ejecutarse en los canales de administracion configurados"
+      );
+    }
+
+    return guildSettings;
   }
 }

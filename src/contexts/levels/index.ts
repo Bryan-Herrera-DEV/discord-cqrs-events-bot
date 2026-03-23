@@ -15,8 +15,12 @@ import { GetMyLevelHandler } from "@contexts/levels/application/queries/GetMyLev
 import { GetLevelLeaderboardQuery } from "@contexts/levels/application/queries/GetLevelLeaderboardQuery";
 import { GetLevelLeaderboardHandler } from "@contexts/levels/application/queries/GetLevelLeaderboardHandler";
 import { MongoLevelProfileRepository } from "@contexts/levels/infrastructure/persistence/MongoLevelProfileRepository";
+import { MongoVoiceXpHistoryRepository } from "@contexts/levels/infrastructure/persistence/MongoVoiceXpHistoryRepository";
 import { LevelPolicy } from "@contexts/levels/domain/LevelPolicy";
 import { OnUserRegisteredInitializeLevelHandler } from "@contexts/levels/application/events/OnUserRegisteredInitializeLevelHandler";
+import { OnMemberLeveledUpAlertHandler } from "@contexts/levels/application/events/OnMemberLeveledUpAlertHandler";
+import { NapiCanvasLevelUpAlertGenerator } from "@contexts/levels/infrastructure/image/NapiCanvasLevelUpAlertGenerator";
+import type { GuildSettingsRepository } from "@contexts/guild-settings/application/ports/GuildSettingsRepository";
 
 export class LevelsModule implements BotModule {
   public readonly name = "levels";
@@ -24,11 +28,14 @@ export class LevelsModule implements BotModule {
   public async register(context: AppContext): Promise<void> {
     const repository = new MongoLevelProfileRepository(context.mongo.getDatabase());
     await repository.init();
+    const voiceXpHistoryRepository = new MongoVoiceXpHistoryRepository(context.mongo.getDatabase());
+    await voiceXpHistoryRepository.init();
 
     const levelPolicy = new LevelPolicy();
+    const levelUpAlertGenerator = new NapiCanvasLevelUpAlertGenerator();
     const guildSettingsRepository = (
       context as unknown as {
-        guildSettingsRepository: import("@contexts/guild-settings/infrastructure/persistence/MongoGuildSettingsRepository").MongoGuildSettingsRepository;
+        guildSettingsRepository: GuildSettingsRepository;
       }
     ).guildSettingsRepository;
 
@@ -42,7 +49,13 @@ export class LevelsModule implements BotModule {
     );
     context.commandBus.register(
       GrantVoiceXpCommand.type,
-      new GrantVoiceXpHandler(repository, levelPolicy, context.eventBus, guildSettingsRepository)
+      new GrantVoiceXpHandler(
+        repository,
+        levelPolicy,
+        context.eventBus,
+        guildSettingsRepository,
+        voiceXpHistoryRepository
+      )
     );
     context.queryBus.register(GetMyLevelQuery.type, new GetMyLevelHandler(repository, levelPolicy));
     context.queryBus.register(
@@ -53,6 +66,15 @@ export class LevelsModule implements BotModule {
     context.eventBus.subscribe(
       "UserRegistered",
       new OnUserRegisteredInitializeLevelHandler(context.commandBus).build()
+    );
+    context.eventBus.subscribe(
+      "MemberLeveledUp",
+      new OnMemberLeveledUpAlertHandler(
+        guildSettingsRepository,
+        levelUpAlertGenerator,
+        context.discord,
+        context.logger.child({ module: "levels" })
+      ).build()
     );
 
     (

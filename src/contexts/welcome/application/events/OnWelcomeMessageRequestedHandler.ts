@@ -6,6 +6,7 @@ import type { WelcomeMessageRequestedPayload } from "@shared/domain/events/BotEv
 import type { Logger } from "@shared/infrastructure/logger/Logger";
 
 import type { WelcomeImageGeneratorPort } from "@contexts/welcome/application/ports/WelcomeImageGeneratorPort";
+import type { GuildSettingsRepository } from "@contexts/guild-settings/application/ports/GuildSettingsRepository";
 import type { DiscordGateway } from "@platform/discord/DiscordGateway";
 
 const renderWelcomeMessage = (payload: WelcomeMessageRequestedPayload): string =>
@@ -14,15 +15,21 @@ const renderWelcomeMessage = (payload: WelcomeMessageRequestedPayload): string =
 export class OnWelcomeMessageRequestedHandler {
   public constructor(
     private readonly imageGenerator: WelcomeImageGeneratorPort,
+    private readonly guildSettingsRepository: GuildSettingsRepository,
     private readonly discord: DiscordGateway,
     private readonly logger: Logger
   ) {}
 
   public build(): DomainEventHandler<DomainEvent<WelcomeMessageRequestedPayload>> {
     return async (event) => {
-      const channelId = await this.discord.getDefaultAnnouncementChannelId(event.payload.guildId);
+      const settings = await this.guildSettingsRepository.findByGuildId(event.payload.guildId);
+      if (settings && !settings.featureFlags.welcomeEnabled) {
+        return;
+      }
+
+      const channelId = settings?.channels.welcomeChannelId;
       if (!channelId) {
-        this.logger.warn("welcome.channel.not-found", { guildId: event.payload.guildId });
+        this.logger.warn("welcome.channel.not-configured", { guildId: event.payload.guildId });
         return;
       }
 
@@ -38,13 +45,18 @@ export class OnWelcomeMessageRequestedHandler {
   ): Promise<void> {
     let imageAttachment: AttachmentBuilder | null = null;
     let imageAvailable = false;
+    const accentColor = 0x2d7a46;
+    const username = payload.username ?? payload.displayName;
 
     try {
       const image = await this.imageGenerator.generate({
         displayName: payload.displayName,
-        username: payload.displayName,
+        username,
         avatarUrl: payload.avatarUrl,
-        title: "Bienvenido/a"
+        title: "Bienvenido/a",
+        subtitle: `@${username}`,
+        accentColor,
+        variant: "welcome"
       });
       imageAttachment = new AttachmentBuilder(image, { name: "welcome.png" });
       imageAvailable = true;
@@ -56,15 +68,25 @@ export class OnWelcomeMessageRequestedHandler {
     }
 
     try {
-      const embed = new EmbedBuilder().setColor(0x2d7a46).setTitle("Bienvenido/a");
+      const embed = new EmbedBuilder()
+        .setColor(accentColor)
+        .setTitle("Bienvenido/a")
+        .setDescription(message)
+        .setAuthor({
+          name: payload.displayName,
+          iconURL: payload.avatarUrl
+        })
+        .setFooter({ text: "Sistema de bienvenida" })
+        .setTimestamp();
+
       if (imageAvailable) {
         embed.setImage("attachment://welcome.png");
       } else {
-        embed.setDescription(message);
+        embed.setThumbnail(payload.avatarUrl ?? null);
       }
 
       await this.discord.sendMessage(channelId, {
-        content: message,
+        content: `<@${payload.userId}>`,
         files: imageAttachment ? [imageAttachment] : [],
         embeds: [embed]
       });

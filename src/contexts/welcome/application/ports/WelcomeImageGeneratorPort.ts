@@ -3,6 +3,9 @@ export interface WelcomeImageInput {
   username: string;
   avatarUrl?: string;
   title: string;
+  subtitle?: string;
+  accentColor?: number;
+  variant?: "welcome" | "goodbye";
 }
 
 export interface WelcomeImageGeneratorPort {

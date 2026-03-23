@@ -20,6 +20,7 @@ import type { UnbanMemberResult } from "@contexts/moderation/application/command
 import type { TimeoutMemberResult } from "@contexts/moderation/application/commands/TimeoutMemberCommand";
 import type { PurgeMessagesResult } from "@contexts/moderation/application/commands/PurgeMessagesCommand";
 import type { ModerationCaseView } from "@contexts/moderation/application/queries/ViewModerationCaseQuery";
+import { infoEmbed } from "@platform/discord/MessageEmbeds";
 
 const assertNativePermission = (
   interaction: ChatInputCommandInteraction,
@@ -61,13 +62,16 @@ export class ModerationSlashCommandHandler implements SlashCommandHandler {
       if (!result) {
         await interaction.reply({
           ephemeral: true,
-          content: `No se encontró el caso #${number}`
+          embeds: [infoEmbed("Caso no encontrado", `No se encontró el caso #${number}.`)]
         });
         return;
       }
 
       const actions = result.actions
-        .map((action) => `${action.createdAt.toISOString()} - ${action.actionType} por <@${action.actorUserId}>`)
+        .map(
+          (action) =>
+            `${action.createdAt.toISOString()} - ${action.actionType} por <@${action.actorUserId}>`
+        )
         .join("\n");
 
       await interaction.reply({
@@ -107,7 +111,11 @@ export class ModerationSlashCommandHandler implements SlashCommandHandler {
     }
 
     if (subcommand === "kick") {
-      assertNativePermission(interaction, PermissionFlagsBits.KickMembers, "Necesitas Kick Members");
+      assertNativePermission(
+        interaction,
+        PermissionFlagsBits.KickMembers,
+        "Necesitas Kick Members"
+      );
       const user = interaction.options.getUser("user", true);
       const reason = interaction.options.getString("reason", true);
       const result = await this.commandBus.execute<KickMemberResult>(

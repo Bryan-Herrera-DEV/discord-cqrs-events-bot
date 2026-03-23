@@ -1,3 +1,5 @@
+import { formatLevelTierRange, resolveLevelTier } from "@contexts/levels/domain/LevelTier";
+
 export interface LevelCardInput {
   displayName: string;
   avatarUrl?: string;
@@ -12,6 +14,8 @@ export interface LevelCardInput {
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
 
+const toHexColor = (value: number): string => `#${value.toString(16).padStart(6, "0")}`;
+
 export class NapiCanvasLevelCardGenerator {
   public async generate(input: LevelCardInput): Promise<Buffer> {
     const canvasModule = await import("@napi-rs/canvas");
@@ -21,11 +25,20 @@ export class NapiCanvasLevelCardGenerator {
     const height = 340;
     const canvas = createCanvas(width, height);
     const context = canvas.getContext("2d");
+    const tier = resolveLevelTier(input.level);
+    const tierRange = formatLevelTierRange(tier);
+    const accentHex = toHexColor(tier.accentColor);
 
     const background = context.createLinearGradient(0, 0, width, height);
-    background.addColorStop(0, "#132a3d");
-    background.addColorStop(1, "#1f5a5b");
+    background.addColorStop(0, tier.backgroundFrom);
+    background.addColorStop(1, tier.backgroundTo);
     context.fillStyle = background;
+    context.fillRect(0, 0, width, height);
+
+    const glow = context.createRadialGradient(width * 0.82, 70, 12, width * 0.82, 70, 280);
+    glow.addColorStop(0, tier.glowColor);
+    glow.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = glow;
     context.fillRect(0, 0, width, height);
 
     context.fillStyle = "rgba(255,255,255,0.06)";
@@ -35,23 +48,27 @@ export class NapiCanvasLevelCardGenerator {
 
     context.fillStyle = "#f2f6f7";
     context.font = "bold 44px Sans";
-    context.fillText("Perfil de nivel", 290, 88);
+    context.fillText("Perfil de nivel", 290, 84);
 
     context.font = "34px Sans";
-    context.fillText(input.displayName, 290, 142);
+    context.fillText(input.displayName, 290, 136);
+
+    context.font = "26px Sans";
+    context.fillStyle = accentHex;
+    context.fillText(`Tier ${tier.label} (${tierRange})`, 290, 174);
 
     context.font = "28px Sans";
     context.fillStyle = "#c8eef0";
     const rankLabel = input.rank ? `#${input.rank}` : "N/A";
-    context.fillText(`Nivel ${input.level}  |  Rank ${rankLabel}`, 290, 186);
+    context.fillText(`Nivel ${input.level}  |  Rank ${rankLabel}`, 290, 210);
 
-    context.fillText(`XP total: ${input.totalXp}`, 290, 226);
-    context.fillText(`Mensajes: ${input.totalMessages}`, 290, 262);
+    context.fillText(`XP total: ${input.totalXp}`, 290, 244);
+    context.fillText(`Mensajes: ${input.totalMessages}`, 290, 274);
 
     const progressX = 290;
-    const progressY = 284;
+    const progressY = 292;
     const progressWidth = 740;
-    const progressHeight = 24;
+    const progressHeight = 22;
     const ratio = clamp(input.xpIntoLevel / Math.max(1, input.xpNeededInLevel), 0, 1);
 
     context.fillStyle = "rgba(255,255,255,0.2)";
@@ -63,18 +80,24 @@ export class NapiCanvasLevelCardGenerator {
       progressX + progressWidth,
       progressY
     );
-    progressGradient.addColorStop(0, "#39d19a");
-    progressGradient.addColorStop(1, "#9ef0bf");
+    progressGradient.addColorStop(0, accentHex);
+    progressGradient.addColorStop(1, "rgba(255,255,255,0.85)");
     context.fillStyle = progressGradient;
     context.fillRect(progressX, progressY, progressWidth * ratio, progressHeight);
 
-    context.font = "24px Sans";
+    context.font = "22px Sans";
     context.fillStyle = "#f2f6f7";
     context.fillText(
       `Progreso: ${input.xpIntoLevel}/${input.xpNeededInLevel} XP`,
       progressX,
       progressY - 10
     );
+
+    context.strokeStyle = accentHex;
+    context.lineWidth = 6;
+    context.beginPath();
+    context.arc(145, 170, 112, 0, Math.PI * 2);
+    context.stroke();
 
     if (input.avatarUrl) {
       try {

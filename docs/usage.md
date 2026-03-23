@@ -5,8 +5,11 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 ## Que funcionalidades incluye hoy
 
 - Administracion general por guild (`/admin ...`).
+- Panel admin web para configuracion de canales/flags sin slash commands.
 - Moderacion con casos auditables (`/mod ...`).
 - Sistema de niveles por actividad de mensajes y tiempo en voz (`/level ...`).
+- Bot de musica con enlaces de Spotify, cola y panel de controles (`/music ...`).
+- Respuestas de comandos en embeds consistentes (exitos, avisos y errores).
 - Gestion de roles con validacion de jerarquia (`/role ...`).
 - Bienvenida automatica con formato fijo e imagen.
 - Despedida automatica con formato fijo e imagen.
@@ -32,12 +35,21 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - Se ejecuta `GrantMessageXpCommand`.
 - Se aplica cooldown de XP por usuario.
 - Si supera umbral de nivel, se emite `MemberLeveledUp`.
+- Si las alertas estan activas y `alertChannelId` esta configurado, se publica una card NAPI con el nivel/tier alcanzado.
 
 ### Al entrar/salir de llamada de voz
 
-- Al entrar a voz se inicia una sesion interna.
-- Al salir de voz se calcula la duracion y se ejecuta `GrantVoiceXpCommand`.
-- El XP de voz suma al mismo perfil de niveles.
+- Si un usuario entra a voz y no tiene perfil de niveles, se crea automaticamente.
+- La sesion de voz inicia cuando entra el primer usuario humano al canal.
+- La sesion termina cuando ya no quedan usuarios humanos en ese canal.
+- Al cerrar la sesion se calcula XP por cada participante y se ejecuta `GrantVoiceXpCommand`.
+- Se guarda historial detallado del calculo en Mongo (`voice_xp_history`).
+
+### Formato visual de bienvenida y despedida
+
+- Se envia embed con menciones, metadata y card grafica.
+- La card se genera en servidor con patron geometrico, avatar y nombre del usuario.
+- Si falla la generacion de imagen, el embed se envia con thumbnail y texto fallback.
 
 ### Al borrar un rol en Discord
 
@@ -45,6 +57,13 @@ Este documento resume lo que hace el bot, como usarlo y que comandos estan dispo
 - Se limpia ese rol de la configuracion interna de roles.
 
 ## Referencia de comandos
+
+## `/help`
+
+Permisos: sin requisito especial.
+
+- Muestra comandos para usuarios comunes.
+- Si quien lo ejecuta tiene perfil admin, añade bloque de comandos administrativos.
 
 ## `/admin`
 
@@ -55,15 +74,58 @@ Permisos: `Administrator` o `ManageGuild` (o rol administrativo segun policy int
 - `/admin config [logs_channel] [leveling_enabled] [moderation_enabled] [language]`
   - Sin parametros: muestra configuracion actual.
   - Con parametros: actualiza campos de configuracion global.
+- `/admin levels [alerts_enabled] [alerts_channel]`
+  - Sin parametros: muestra configuracion de alertas de niveles.
+  - Con parametros: activa/desactiva alertas y define el canal de alertas.
+
+Canales relevantes de configuracion:
+
+- `botCommandChannelIds`: canal(es) publico(s) donde se permiten comandos slash.
+- `administrationChannelIds`: canal(es) donde se permite `/admin ...`.
+- `musicCommandChannelId`: canal exclusivo del bot de musica (solo comandos).
+- `alertChannelId`: canal exclusivo para alertas de niveles.
+- `welcomeChannelId`: canal exclusivo para bienvenida.
+- `goodbyeChannelId`: canal exclusivo para despedida.
+- `logsChannelId`: canal exclusivo para reportes de administracion y moderacion.
 
 ## `/level`
 
 Permisos: sin requisito especial.
 
 - `/level me [user]`
-  - Muestra tarjeta grafica con nivel, rank, XP y progreso.
+  - Muestra tarjeta grafica con nivel, rank, XP, progreso y tier actual.
 - `/level leaderboard [limit]`
   - Muestra ranking de niveles (1-20, default 10).
+
+## `/music`
+
+Permisos: sin requisito especial (ejecucion limitada al `musicCommandChannelId`).
+
+- `/music play query:<url_spotify>`
+  - Acepta solo enlaces de Spotify (`track`, `album` o `playlist`).
+  - Si el enlace no es de Spotify, el comando se rechaza.
+  - El bot se une al canal de voz con mas participantes humanos.
+  - Si no hay participantes en voz, no se une ni reproduce.
+  - Si falla el bridge interno hacia YouTube para algun track, configura `YOUTUBE_COOKIE` en `.env`.
+
+Runtime recomendado para musica:
+
+- `discord-player` + `@discord-player/extractor` (stack oficial).
+- `@discord-player/downloader` (para bridge de stream en tracks de Spotify cuando no hay stream directo).
+- `@snazzah/davey` (soporte de cifrado DAVE en voz).
+- FFmpeg disponible (por sistema, `FFMPEG_PATH` o `ffmpeg-static`).
+- Libreria Opus instalada (`mediaplex`, recomendado por la documentacion oficial de discord-player).
+- `/music skip`
+  - Pasa a la siguiente cancion.
+- `/music queue`
+  - Muestra la cola actual.
+- `/music panel`
+  - Publica un embed con botones para saltar, pausar/reanudar, detener y ver cola.
+
+Regla del canal de musica:
+
+- Si alguien escribe un mensaje normal en `musicCommandChannelId`, el bot lo elimina.
+- Luego envia aviso al usuario indicando que el canal es solo para comandos de musica.
 
 ## `/role`
 
@@ -81,10 +143,11 @@ Comportamiento importante:
 
 ## Bienvenida y despedida
 
-- No tienen comandos de configuracion.
+- Se configuran desde panel web admin o por settings internos.
 - Usan un formato unico para todas las guilds.
 - Incluyen imagen generada con avatar del usuario.
-- Se publican en el canal por defecto del servidor (system channel o primer canal de texto disponible).
+- Solo se publican si el canal correspondiente esta configurado.
+- Si el canal no esta configurado, no se envia mensaje en ningun otro canal.
 
 ## `/mod`
 
@@ -106,10 +169,20 @@ Cada accion crea caso de moderacion y, si hay `logs_channel`, envia log estructu
 
 1. Ejecutar `/admin config logs_channel:<canal>` para auditoria.
 2. Ajustar flags iniciales: `/admin config leveling_enabled:true moderation_enabled:true`.
-3. Validar con `/admin ping` y luego probar flujo real con usuario de pruebas.
+3. Configurar alertas de nivel: `/admin levels alerts_enabled:true alerts_channel:<canal>`.
+4. Validar con `/admin ping` y luego probar flujo real con usuario de pruebas.
 
 ## Endpoints de observabilidad
 
 - `GET /healthz`: estado general y uptime.
 - `GET /readyz`: readiness (Mongo + Discord listos).
 - `GET /metrics`: metricas Prometheus (`bot_commands_total`, `bot_command_failures_total`, `bot_events_total`, `bot_active_guilds`).
+
+## Panel web y API de configuracion
+
+- Panel: `http://localhost:<ADMIN_PORT>`
+- API admin:
+  - `GET /api/guilds`
+  - `GET /api/guilds/:guildId/channels`
+  - `GET /api/guilds/:guildId/settings`
+  - `PUT /api/guilds/:guildId/settings`
